@@ -1,12 +1,4 @@
-#################################################
-# Provider + auth (customer's OWN Azure credentials)
-#
-# This module runs in the CUSTOMER's subscription with the customer's
-# credentials — it provisions only networking the customer owns. No Cielara
-# secrets live in this repo. Auth is the standard azurerm service-principal
-# quartet; a customer may instead omit these and rely on `az login` /
-# environment variables, in which case leave the vars empty.
-#################################################
+
 terraform {
   required_version = ">= 1.5"
 
