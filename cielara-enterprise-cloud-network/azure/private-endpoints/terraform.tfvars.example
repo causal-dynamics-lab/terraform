@@ -1,0 +1,35 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
+
+# --- Azure auth (same subscription the vnet module ran in) --------------------
+subscription_id = "00000000-0000-0000-0000-000000000000"
+tenant_id       = "00000000-0000-0000-0000-000000000000"
+# azure_client_id     = ""
+# azure_client_secret = ""
+
+# --- Network handles (copy from the vnet module outputs) ----------------------
+resource_group_name = "my-cielara-rg"
+vnet_name           = "cielara-vnet"
+# pe_subnet_name    = "pe-subnet"   # default; override only if you renamed it
+
+# --- Ownership / naming -------------------------------------------------------
+# cielara_client_id = "<client id Cielara gave you>"
+# name_prefix       = "cielara"
+# request_message   = "Cielara Enterprise private endpoint connection request"
+
+# --- Remote private AKS clusters to reach -------------------------------------
+# One entry per remote cluster. Key = short stable label (used in resource names).
+#   pls_id : the remote API-server Private Link Service ID. Find it with:
+#            az network private-link-service list -g MC_<rg>_<cluster>_<region> \
+#              --query "[].id" -o tsv
+#   fqdn   : the remote cluster's PRIVATE API FQDN. Find it with:
+#            az aks show -g <rg> -n <cluster> --query privateFqdn -o tsv
+remote_clusters = {
+  # cluster-a = {
+  #   pls_id = "/subscriptions/.../resourceGroups/MC_.../providers/Microsoft.Network/privateLinkServices/kube-apiserver"
+  #   fqdn   = "myaks-a-xxxxxxxx.0123abcd-89ef-...-0000.privatelink.eastus2.azmk8s.io"
+  # }
+  # cluster-b = {
+  #   pls_id = "/subscriptions/.../resourceGroups/MC_.../providers/Microsoft.Network/privateLinkServices/kube-apiserver"
+  #   fqdn   = "myaks-b-yyyyyyyy.4567cdef-89ab-...-1111.privatelink.eastus2.azmk8s.io"
+  # }
+}

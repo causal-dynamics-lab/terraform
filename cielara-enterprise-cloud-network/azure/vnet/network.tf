@@ -8,14 +8,17 @@
 #   system    <cidr>/24  (256)  system node pool
 #   appgw     <cidr>/26  (64)   Application Gateway (dedicated, AGIC)
 #   postgres  <cidr>/28  (16)   PostgreSQL Flexible Server (delegated subnet)
+#   pe        <cidr>/28  (16)   Private endpoints (egress to remote private clusters)
 # For the default 10.2.0.0/20: user 10.2.4.0/22, system 10.2.0.0/24,
-# appgw 10.2.1.0/26, postgres 10.2.1.64/28; 10.2.8.0/21 is left free for growth.
+# appgw 10.2.1.0/26, postgres 10.2.1.64/28, pe 10.2.8.0/28; the rest of
+# 10.2.8.0/21 is left free for growth.
 #################################################
 locals {
   user_subnet_cidr   = cidrsubnet(var.vnet_cidr, 2, 1)
   system_subnet_cidr = cidrsubnet(var.vnet_cidr, 4, 0)
   appgw_subnet_cidr  = cidrsubnet(var.vnet_cidr, 6, 4)
   pg_subnet_cidr     = cidrsubnet(var.vnet_cidr, 8, 20)
+  pe_subnet_cidr     = cidrsubnet(var.vnet_cidr, 8, 128)
 
   # cielara-client-id is an optional ownership/audit tag — added only when a
   # client ID is provided. The network is handed back (and adopted) by name, so
@@ -101,6 +104,19 @@ resource "azurerm_subnet" "postgres" {
       actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
     }
   }
+}
+
+# Subnet that hosts private endpoints created by the sibling private-endpoints
+# module (egress from this VNet to remote private AKS clusters). Network policies
+# MUST be disabled on a subnet that holds private endpoints. The subnet is owned
+# here (single source of subnet truth); the private-endpoints module looks it up
+# by name and never creates subnets of its own.
+resource "azurerm_subnet" "pe" {
+  name                              = "pe-subnet"
+  resource_group_name               = data.azurerm_resource_group.main.name
+  virtual_network_name              = azurerm_virtual_network.main.name
+  address_prefixes                  = [local.pe_subnet_cidr]
+  private_endpoint_network_policies = "Disabled"
 }
 
 #################################################
