@@ -73,18 +73,28 @@ variable "request_message" {
 #
 # One entry per remote cluster. The map KEY is a short label used in resource
 # names and as the for_each key (keep it stable — changing it recreates the PE).
-#   pls_id : resource ID of the remote cluster's API-server Private Link Service
-#            (lives in the remote MC_… node resource group, named "kube-apiserver").
-#   fqdn   : the remote cluster's PRIVATE API FQDN, e.g.
-#            myaks-xxxxxxxx.0123abcd-...-89ef.privatelink.eastus2.azmk8s.io
-#            The DNS zone (privatelink.<region>.azmk8s.io) and the A-record name
-#            are parsed from this — clusters in the same region share one zone.
+#
+# The AKS API server is NOT a standalone Private Link Service: the private
+# endpoint targets the managed CLUSTER resource itself with the "management"
+# subresource (group id). So:
+#   cluster_id : resource ID of the remote AKS managed cluster, e.g.
+#                az aks show -g <rg> -n <cluster> --query id -o tsv
+#   fqdn       : the remote cluster's PRIVATE API FQDN, e.g.
+#                az aks show -g <rg> -n <cluster> --query privateFqdn -o tsv
+#                The DNS zone (privatelink.<region>.azmk8s.io) and the A-record
+#                name are parsed from this; clusters in the same region share
+#                one zone.
+#   is_manual_connection : false (default) auto-approves when this identity has
+#                approval rights on the remote cluster (same tenant/owner). Set
+#                true for cross-tenant, where the remote owner must approve the
+#                request (request_message is sent to them).
 #################################################
 variable "remote_clusters" {
   description = "Map of remote private AKS clusters to create private endpoints for. Key = short stable label."
   type = map(object({
-    pls_id = string
-    fqdn   = string
+    cluster_id           = string
+    fqdn                 = string
+    is_manual_connection = optional(bool, false)
   }))
   default = {}
 

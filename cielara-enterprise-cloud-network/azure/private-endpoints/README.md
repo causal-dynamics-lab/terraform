@@ -13,20 +13,24 @@ In the resource group and `pe-subnet` provisioned by the `vnet` module
 
 | Resource | Per | Notes |
 |----------|-----|-------|
-| `azurerm_private_endpoint` | cluster | manual connection to the remote API-server Private Link Service; starts **Pending** until approved |
+| `azurerm_private_endpoint` | cluster | connects to the remote AKS **managed cluster** resource via the `management` subresource (the API server has no standalone PLS); auto-approves by default |
 | `azurerm_private_dns_zone` | region | `privatelink.<region>.azmk8s.io`; clusters in the same region share one zone |
 | `azurerm_private_dns_zone_virtual_network_link` | region | links the zone to the Cielara VNet so pods resolve the remote API FQDN |
 | `azurerm_private_dns_a_record` | cluster | remote API host → this endpoint's private IP |
 
 It creates **no** VNet, subnet, or the remote clusters — those exist already.
 
+> The remote cluster **must be a private cluster** (`--enable-private-cluster`).
+> A public cluster has no private API endpoint to connect to.
+
 ## Prerequisites
 
 - The `vnet` module applied; copy its `resource_group_name`, `vnet_name`, and
   `pe_subnet_name` outputs into `terraform.tfvars`.
-- For each remote cluster: its API-server **Private Link Service ID** and
-  **private API FQDN** (see `terraform.tfvars.example` for the `az` commands).
-- `Contributor` on the resource group; Terraform `>= 1.5`, `azurerm ~> 4.77`.
+- For each remote cluster: its managed-cluster **resource ID** and **private API
+  FQDN** (see `terraform.tfvars.example` for the `az` commands).
+- `Contributor` on the resource group; for auto-approval, approval rights on the
+  remote cluster (same tenant/owner). Terraform `>= 1.5`, `azurerm ~> 4.77`.
 
 ## Run
 
@@ -38,25 +42,30 @@ terraform plan
 terraform apply
 ```
 
-## Approve the connection (required, manual)
+## Connection approval
 
-Each private endpoint uses a **manual** connection, so it stays `Pending` until
-the **remote** cluster's owner approves it. Until then, no traffic flows. On the
-remote side:
+By default (`is_manual_connection = false`) the connection **auto-approves** when
+the identity running Terraform has approval rights on the remote cluster (same
+tenant / owner) — nothing else to do.
+
+For **cross-tenant** set `is_manual_connection = true` per cluster; the endpoint
+then stays `Pending` until the remote cluster's owner approves it:
 
 ```bash
-# list pending connections on the remote API-server Private Link Service
+# list connections on the remote managed cluster
 az network private-endpoint-connection list \
-  --id <remote-pls-id> -o table
+  --id <remote-cluster-id> -o table
 
 # approve
 az network private-endpoint-connection approve \
-  --id <remote-pls-connection-id> \
+  --id <remote-cluster-connection-id> \
   --description "approved for Cielara"
 ```
 
-After approval, `terraform output connection_states` and DNS resolution from the
-VNet confirm the link is live.
+The Pending/Approved state lives on the producer side, so check it there
+(`az network private-endpoint-connection show`), not via a Terraform output.
+Once approved, the remote API FQDN resolving from the VNet to the endpoint IP
+(`terraform output private_endpoint_ips`) confirms the link is live.
 
 ## Adding more clusters
 

@@ -18,18 +18,15 @@ vnet_name           = "cielara-vnet"
 
 # --- Remote private AKS clusters to reach -------------------------------------
 # One entry per remote cluster. Key = short stable label (used in resource names).
-#   pls_id : the remote API-server Private Link Service ID. Find it with:
-#            az network private-link-service list -g MC_<rg>_<cluster>_<region> \
-#              --query "[].id" -o tsv
-#   fqdn   : the remote cluster's PRIVATE API FQDN. Find it with:
-#            az aks show -g <rg> -n <cluster> --query privateFqdn -o tsv
+#   cluster_id : the remote AKS managed cluster resource ID. Find it with:
+#                az aks show -g <rg> -n <cluster> --query id -o tsv
+#   fqdn       : the remote cluster's PRIVATE API FQDN. Find it with:
+#                az aks show -g <rg> -n <cluster> --query privateFqdn -o tsv
+#   is_manual_connection : optional, default false (auto-approve, same tenant).
+#                Set true only for cross-tenant, where the remote owner approves.
 remote_clusters = {
   # cluster-a = {
-  #   pls_id = "/subscriptions/.../resourceGroups/MC_.../providers/Microsoft.Network/privateLinkServices/kube-apiserver"
-  #   fqdn   = "myaks-a-xxxxxxxx.0123abcd-89ef-...-0000.privatelink.eastus2.azmk8s.io"
-  # }
-  # cluster-b = {
-  #   pls_id = "/subscriptions/.../resourceGroups/MC_.../providers/Microsoft.Network/privateLinkServices/kube-apiserver"
-  #   fqdn   = "myaks-b-yyyyyyyy.4567cdef-89ab-...-1111.privatelink.eastus2.azmk8s.io"
+  #   cluster_id = "/subscriptions/.../resourceGroups/<rg>/providers/Microsoft.ContainerService/managedClusters/<cluster>"
+  #   fqdn       = "myaks-a-xxxxxxxx.0123abcd-89ef-...-0000.privatelink.eastus2.azmk8s.io"
   # }
 }

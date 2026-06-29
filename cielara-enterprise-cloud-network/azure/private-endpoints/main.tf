@@ -17,10 +17,11 @@ locals {
   # record = myaks-abc123.0123-...-89ef      (labels before "privatelink")
   clusters = {
     for k, c in var.remote_clusters : k => {
-      pls_id      = c.pls_id
-      fqdn        = c.fqdn
-      zone_name   = join(".", slice(split(".", c.fqdn), index(split(".", c.fqdn), "privatelink"), length(split(".", c.fqdn))))
-      record_name = join(".", slice(split(".", c.fqdn), 0, index(split(".", c.fqdn), "privatelink")))
+      cluster_id           = c.cluster_id
+      fqdn                 = c.fqdn
+      is_manual_connection = c.is_manual_connection
+      zone_name            = join(".", slice(split(".", c.fqdn), index(split(".", c.fqdn), "privatelink"), length(split(".", c.fqdn))))
+      record_name          = join(".", slice(split(".", c.fqdn), 0, index(split(".", c.fqdn), "privatelink")))
     }
   }
 
@@ -50,9 +51,12 @@ data "azurerm_subnet" "pe" {
 #################################################
 # Private endpoints — one per remote cluster
 #
-# is_manual_connection = true: the remote cluster's owner must APPROVE the
-# connection out of band before traffic flows (it starts "Pending"):
-#   az network private-endpoint-connection approve --id <remote PLS connection id>
+# Targets the AKS managed cluster resource with the "management" subresource —
+# that is how AKS exposes its private API server (there is no standalone PLS).
+# is_manual_connection = false (default) auto-approves when this identity has
+# approval rights on the remote cluster. When true, the remote owner must
+# approve out of band before traffic flows (it starts "Pending"):
+#   az network private-endpoint-connection approve --id <connection id>
 #################################################
 resource "azurerm_private_endpoint" "remote_aks" {
   for_each = local.clusters
@@ -65,9 +69,11 @@ resource "azurerm_private_endpoint" "remote_aks" {
 
   private_service_connection {
     name                           = "${var.name_prefix}-psc-${each.key}"
-    is_manual_connection           = true
-    private_connection_resource_id = each.value.pls_id
-    request_message                = var.request_message
+    is_manual_connection           = each.value.is_manual_connection
+    private_connection_resource_id = each.value.cluster_id
+    subresource_names              = ["management"]
+    # request_message is only valid on a manual connection.
+    request_message = each.value.is_manual_connection ? var.request_message : null
   }
 }
 

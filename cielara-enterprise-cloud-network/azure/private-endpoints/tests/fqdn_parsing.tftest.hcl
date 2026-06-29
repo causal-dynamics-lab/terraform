@@ -36,7 +36,7 @@ run "parses_zone_and_record_from_fqdn" {
   variables {
     remote_clusters = {
       a = {
-        pls_id = "/subscriptions/x/resourceGroups/MC_rg_a_eastus2/providers/Microsoft.Network/privateLinkServices/kube-apiserver"
+        cluster_id = "/subscriptions/x/resourceGroups/rg-a/providers/Microsoft.ContainerService/managedClusters/aks-a"
         fqdn   = "myaks-abc.0123-guid.privatelink.eastus2.azmk8s.io"
       }
     }
@@ -58,8 +58,13 @@ run "parses_zone_and_record_from_fqdn" {
   }
 
   assert {
-    condition     = azurerm_private_endpoint.remote_aks["a"].private_service_connection[0].is_manual_connection == true
-    error_message = "private endpoint connection must be manual (needs producer approval)"
+    condition     = azurerm_private_endpoint.remote_aks["a"].private_service_connection[0].is_manual_connection == false
+    error_message = "default connection should be auto-approve (manual only for cross-tenant)"
+  }
+
+  assert {
+    condition     = contains(azurerm_private_endpoint.remote_aks["a"].private_service_connection[0].subresource_names, "management")
+    error_message = "AKS API-server PE must target the 'management' subresource"
   }
 }
 
@@ -71,11 +76,11 @@ run "clusters_in_same_region_share_one_zone" {
   variables {
     remote_clusters = {
       a = {
-        pls_id = "/subscriptions/x/.../kube-apiserver"
+        cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
         fqdn   = "myaks-a.guid-a.privatelink.eastus2.azmk8s.io"
       }
       b = {
-        pls_id = "/subscriptions/x/.../kube-apiserver"
+        cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
         fqdn   = "myaks-b.guid-b.privatelink.eastus2.azmk8s.io"
       }
     }
@@ -105,11 +110,11 @@ run "clusters_in_different_regions_get_distinct_zones" {
   variables {
     remote_clusters = {
       a = {
-        pls_id = "/subscriptions/x/.../kube-apiserver"
+        cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
         fqdn   = "myaks-a.guid-a.privatelink.eastus2.azmk8s.io"
       }
       b = {
-        pls_id = "/subscriptions/x/.../kube-apiserver"
+        cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
         fqdn   = "myaks-b.guid-b.privatelink.westus3.azmk8s.io"
       }
     }
@@ -134,7 +139,7 @@ run "rejects_fqdn_without_privatelink_label" {
   variables {
     remote_clusters = {
       bad = {
-        pls_id = "/subscriptions/x/.../kube-apiserver"
+        cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
         fqdn   = "myaks.example.azmk8s.io"
       }
     }

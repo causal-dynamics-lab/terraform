@@ -42,7 +42,8 @@ run "default_cidr_derives_expected_subnets" {
   }
 }
 
-# Overlap with the Kubernetes service CIDR 10.1.0.0/16 must be rejected.
+# Overlap with the Kubernetes service CIDR 10.1.0.0/16 must be rejected — base
+# of the VNet equal to the service base.
 run "rejects_service_cidr_overlap" {
   command = plan
 
@@ -51,6 +52,45 @@ run "rejects_service_cidr_overlap" {
   }
 
   expect_failures = [var.vnet_cidr]
+}
+
+# Non-base overlap: 10.1.16.0/20 sits inside 10.1.0.0/16 but its base is not
+# 10.1.0.0. The old base-equality check missed this; the range check must catch it.
+run "rejects_non_base_overlap_inside_service_cidr" {
+  command = plan
+
+  variables {
+    vnet_cidr = "10.1.16.0/20"
+  }
+
+  expect_failures = [var.vnet_cidr]
+}
+
+# Superset overlap: 10.0.0.0/8 fully contains 10.1.0.0/16. Base (10.0.0.0) is
+# not 10.1.0.0, but the ranges overlap, so it must be rejected.
+run "rejects_supernet_containing_service_cidr" {
+  command = plan
+
+  variables {
+    vnet_cidr = "10.0.0.0/8"
+  }
+
+  expect_failures = [var.vnet_cidr]
+}
+
+# A disjoint range just below the service CIDR (ends at 10.0.255.255) must pass —
+# guards against an off-by-one in the range comparison.
+run "accepts_disjoint_range_adjacent_below" {
+  command = plan
+
+  variables {
+    vnet_cidr = "10.0.0.0/20"
+  }
+
+  assert {
+    condition     = contains(azurerm_virtual_network.main.address_space, "10.0.0.0/20")
+    error_message = "a disjoint range adjacent below the service CIDR should be accepted"
+  }
 }
 
 # A block smaller than /20 can't fit the required subnets; must be rejected.

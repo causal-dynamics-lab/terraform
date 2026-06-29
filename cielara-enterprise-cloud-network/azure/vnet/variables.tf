@@ -69,10 +69,17 @@ variable "vnet_cidr" {
   default     = "10.2.0.0/20"
 
   validation {
-    # Guardrail: the VNet network base must not equal 10.1.0.0 (the service
-    # CIDR). cidrhost(<cidr>, 0) is the network address; comparing it to
-    # 10.1.0.0 catches the overlap the default 10.2.0.0/20 was chosen to avoid.
-    condition     = cidrhost(var.vnet_cidr, 0) != "10.1.0.0"
+    # Guardrail: the VNet must not overlap the Kubernetes service CIDR
+    # 10.1.0.0/16. A base-address-equality check is not enough — 10.1.16.0/20 or
+    # 10.0.0.0/8 overlap without their base being 10.1.0.0. So compare the two
+    # ranges as integers. The VNet's network base (cidrhost(cidr, 0)) is packed
+    # to a uint32 via hex; its end is base + 2^(32-prefix) - 1. The service CIDR
+    # 10.1.0.0/16 spans [167837696, 167903231]. Ranges overlap iff
+    # base <= service_end AND vnet_end >= service_start.
+    condition = !(
+      parseint(join("", [for o in split(".", cidrhost(var.vnet_cidr, 0)) : format("%02x", tonumber(o))]), 16) <= 167903231 &&
+      parseint(join("", [for o in split(".", cidrhost(var.vnet_cidr, 0)) : format("%02x", tonumber(o))]), 16) + pow(2, 32 - tonumber(split("/", var.vnet_cidr)[1])) - 1 >= 167837696
+    )
     error_message = "vnet_cidr overlaps the Kubernetes service CIDR 10.1.0.0/16. Use a disjoint range (default 10.2.0.0/20)."
   }
 
