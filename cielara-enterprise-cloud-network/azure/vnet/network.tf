@@ -8,17 +8,19 @@
 #   system    <cidr>/24  (256)  system node pool
 #   appgw     <cidr>/26  (64)   Application Gateway (dedicated, AGIC)
 #   postgres  <cidr>/28  (16)   PostgreSQL Flexible Server (delegated subnet)
-#   pe        <cidr>/28  (16)   Private endpoints (egress to remote private clusters)
+#   pe        <cidr>/26  (64)   Private endpoints (egress to remote private clusters)
 # For the default 10.2.0.0/20: user 10.2.4.0/22, system 10.2.0.0/24,
-# appgw 10.2.1.0/26, postgres 10.2.1.64/28, pe 10.2.8.0/28; the rest of
-# 10.2.8.0/21 is left free for growth.
+# appgw 10.2.1.0/26, postgres 10.2.1.64/28, pe 10.2.8.0/26; the rest of
+# 10.2.8.0/21 is left free for growth. The pe subnet is a /26 (Azure reserves 5
+# IPs, so ~59 endpoints) — comfortably more than the handful of remote clusters
+# and PaaS endpoints expected, while still a small slice of the free /21.
 #################################################
 locals {
   user_subnet_cidr   = cidrsubnet(var.vnet_cidr, 2, 1)
   system_subnet_cidr = cidrsubnet(var.vnet_cidr, 4, 0)
   appgw_subnet_cidr  = cidrsubnet(var.vnet_cidr, 6, 4)
   pg_subnet_cidr     = cidrsubnet(var.vnet_cidr, 8, 20)
-  pe_subnet_cidr     = cidrsubnet(var.vnet_cidr, 8, 128)
+  pe_subnet_cidr     = cidrsubnet(var.vnet_cidr, 6, 32)
 
   # cielara-client-id is an optional ownership/audit tag — added only when a
   # client ID is provided. The network is handed back (and adopted) by name, so

@@ -27,8 +27,8 @@ run "default_cidr_derives_expected_subnets" {
   command = plan
 
   assert {
-    condition     = azurerm_subnet.pe.address_prefixes[0] == "10.2.8.0/28"
-    error_message = "pe-subnet should derive to 10.2.8.0/28 for the default 10.2.0.0/20"
+    condition     = azurerm_subnet.pe.address_prefixes[0] == "10.2.8.0/26"
+    error_message = "pe-subnet should derive to 10.2.8.0/26 for the default 10.2.0.0/20"
   }
 
   assert {

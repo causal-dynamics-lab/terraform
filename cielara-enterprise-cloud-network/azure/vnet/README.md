@@ -17,7 +17,7 @@ or deletes it):
 | `system-subnet` `/24` | Kubernetes system node pool; `Microsoft.Storage` service endpoint |
 | `appgw-subnet` `/26` | dedicated Application Gateway subnet |
 | `postgres-subnet` `/28` | delegated to `Microsoft.DBforPostgreSQL/flexibleServers` |
-| `pe-subnet` `/28` | private endpoints (network policies disabled); consumed by the sibling `private-endpoints` module for egress to remote private AKS clusters |
+| `pe-subnet` `/26` | private endpoints (network policies disabled); ~59 usable IPs; consumed by the sibling `private-endpoints` module for egress to remote private AKS clusters |
 | NAT gateway + public IP | outbound for the private node subnets, associated to system+user |
 
 It does **not** create the Kubernetes cluster, Postgres server, Key Vault,
@@ -78,6 +78,6 @@ resource group.
 `10.1.0.0/16` (the module validates this). The default `10.2.0.0/20` is safe.
 The subnet ranges are derived automatically and must not be changed —
 Cielara Enterprise's cluster, Postgres VNet-injection, and Azure Files mounts
-depend on this exact layout. The `pe-subnet` (`10.2.8.0/28` for the default
-`/20`) is carved from the free `10.2.8.0/21` tail and feeds the sibling
-`private-endpoints` module.
+depend on this exact layout. The `pe-subnet` (`10.2.8.0/26` for the default
+`/20`, ~59 usable IPs) is carved from the free `10.2.8.0/21` tail and feeds the
+sibling `private-endpoints` module.
