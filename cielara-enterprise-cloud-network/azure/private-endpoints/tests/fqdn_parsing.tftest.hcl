@@ -37,7 +37,7 @@ run "parses_zone_and_record_from_fqdn" {
     remote_clusters = {
       a = {
         cluster_id = "/subscriptions/x/resourceGroups/rg-a/providers/Microsoft.ContainerService/managedClusters/aks-a"
-        fqdn   = "myaks-abc.0123-guid.privatelink.eastus2.azmk8s.io"
+        fqdn       = "myaks-abc.0123-guid.privatelink.eastus2.azmk8s.io"
       }
     }
   }
@@ -77,11 +77,11 @@ run "clusters_in_same_region_share_one_zone" {
     remote_clusters = {
       a = {
         cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
-        fqdn   = "myaks-a.guid-a.privatelink.eastus2.azmk8s.io"
+        fqdn       = "myaks-a.guid-a.privatelink.eastus2.azmk8s.io"
       }
       b = {
         cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
-        fqdn   = "myaks-b.guid-b.privatelink.eastus2.azmk8s.io"
+        fqdn       = "myaks-b.guid-b.privatelink.eastus2.azmk8s.io"
       }
     }
   }
@@ -111,11 +111,11 @@ run "clusters_in_different_regions_get_distinct_zones" {
     remote_clusters = {
       a = {
         cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
-        fqdn   = "myaks-a.guid-a.privatelink.eastus2.azmk8s.io"
+        fqdn       = "myaks-a.guid-a.privatelink.eastus2.azmk8s.io"
       }
       b = {
         cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
-        fqdn   = "myaks-b.guid-b.privatelink.westus3.azmk8s.io"
+        fqdn       = "myaks-b.guid-b.privatelink.westus3.azmk8s.io"
       }
     }
   }
@@ -140,7 +140,7 @@ run "rejects_fqdn_without_privatelink_label" {
     remote_clusters = {
       bad = {
         cluster_id = "/subscriptions/x/resourceGroups/rg/providers/Microsoft.ContainerService/managedClusters/aks"
-        fqdn   = "myaks.example.azmk8s.io"
+        fqdn       = "myaks.example.azmk8s.io"
       }
     }
   }
