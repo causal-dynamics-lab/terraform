@@ -1,0 +1,14 @@
+# Terraform working dirs and state — never commit
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Local variable files may carry subscription IDs / secrets. Examples are kept.
+*.tfvars
+!*.tfvars.example
+.claude/
+# Keep .terraform.lock.hcl committed (provider pinning) — not ignored.
+
+# Local scratch (CLI scripts, throwaway)
+tmp/

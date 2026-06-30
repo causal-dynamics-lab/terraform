@@ -1,0 +1,160 @@
+name: tf-e2e
+
+# Manual end-to-end test against real Azure: create vnet(s) -> private AKS
+# (producer) + public AKS (consumer) -> private-endpoints module -> verify the
+# consumer reaches the producer's private API over OUR private endpoint -> tear
+# everything down. Everything lives in one ephemeral resource group that is
+# force-deleted at the end, even on failure.
+#
+# ── Auth (reuses the org's existing Azure OIDC) ───────────────────────────────
+# Same secrets/login as cielara/core's e2e-control-plane-deploy-nightly.yml:
+#   secrets.AZURE_CLIENT_ID / secrets.AZURE_TENANT_ID / secrets.AZURE_SUBSCRIPTION_ID
+#   region default: vars.E2E_AKS_REGION (else eastus2)
+# If those are organization secrets they already apply here. One extra one-time
+# step: the SP's federated credential must accept THIS repo's subject, e.g.
+#   az ad app federated-credential create --id <appId> --parameters '{
+#     "name": "gh-terraform-main",
+#     "issuer": "https://token.actions.githubusercontent.com",
+#     "subject": "repo:causal-dynamics-lab/terraform:ref:refs/heads/main",
+#     "audiences": ["api://AzureADTokenExchange"]
+#   }'
+# (dispatch from the branch named in the subject — here main).
+
+on:
+  workflow_dispatch:
+    inputs:
+      location:
+        description: Azure region
+        default: eastus2
+        required: false
+
+permissions:
+  id-token: write # mint the OIDC token
+  contents: read
+
+concurrency:
+  group: tf-e2e
+  cancel-in-progress: false
+
+env:
+  ARM_USE_OIDC: "true"
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  # The modules require these as input variables; feed them via TF_VAR_*.
+  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+  LOCATION: ${{ github.event.inputs.location || vars.E2E_AKS_REGION || 'eastus2' }}
+  RG: cielara-e2e-${{ github.run_id }}
+  BASE: cielara-enterprise-cloud-network/azure
+  PROD_VNET_CIDR: 10.2.0.0/20
+  CONS_VNET_CIDR: 10.3.0.0/20
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Create ephemeral resource group
+        run: az group create -n "$RG" -l "$LOCATION" -o none
+
+      # Two separate vnets so the producer's AKS-managed private DNS zone (linked
+      # only to the producer vnet) does not shadow our module's zone in the
+      # consumer vnet. Same module, two state files, two name prefixes.
+      - name: Apply producer vnet
+        working-directory: cielara-enterprise-cloud-network/azure/vnet
+        run: |
+          terraform init -input=false
+          terraform apply -auto-approve -input=false -state=prod.tfstate \
+            -var resource_group_name="$RG" -var location="$LOCATION" \
+            -var name_prefix=e2eprod -var vnet_cidr="$PROD_VNET_CIDR"
+
+      - name: Apply consumer vnet
+        working-directory: cielara-enterprise-cloud-network/azure/vnet
+        run: |
+          terraform apply -auto-approve -input=false -state=cons.tfstate \
+            -var resource_group_name="$RG" -var location="$LOCATION" \
+            -var name_prefix=e2econs -var vnet_cidr="$CONS_VNET_CIDR"
+
+      - name: Create AKS clusters (producer=private, consumer=public)
+        run: |
+          set -euo pipefail
+          PROD_SUBNET=$(az network vnet subnet show -g "$RG" --vnet-name e2eprod-vnet -n system-subnet --query id -o tsv)
+          CONS_SUBNET=$(az network vnet subnet show -g "$RG" --vnet-name e2econs-vnet -n system-subnet --query id -o tsv)
+          az aks create -g "$RG" -n e2e-producer --enable-private-cluster --node-count 1 \
+            --node-vm-size Standard_D2s_v3 --network-plugin azure --vnet-subnet-id "$PROD_SUBNET" \
+            --service-cidr 10.1.0.0/16 --dns-service-ip 10.1.0.10 \
+            --outbound-type userAssignedNATGateway --generate-ssh-keys --no-wait
+          az aks create -g "$RG" -n e2e-consumer --node-count 1 \
+            --node-vm-size Standard_D2s_v3 --network-plugin azure --vnet-subnet-id "$CONS_SUBNET" \
+            --service-cidr 10.1.0.0/16 --dns-service-ip 10.1.0.10 \
+            --outbound-type userAssignedNATGateway --generate-ssh-keys --no-wait
+          az aks wait -g "$RG" -n e2e-producer --created --interval 30 --timeout 1800
+          az aks wait -g "$RG" -n e2e-consumer --created --interval 30 --timeout 1800
+
+      - name: Apply private-endpoints (consumer vnet -> producer API)
+        working-directory: cielara-enterprise-cloud-network/azure/private-endpoints
+        run: |
+          set -euo pipefail
+          PROD_ID=$(az aks show -g "$RG" -n e2e-producer --query id -o tsv)
+          PROD_FQDN=$(az aks show -g "$RG" -n e2e-producer --query privateFqdn -o tsv)
+          cat > ci.auto.tfvars <<EOF
+          resource_group_name = "$RG"
+          vnet_name           = "e2econs-vnet"
+          pe_subnet_name      = "pe-subnet"
+          remote_clusters = {
+            e2e = {
+              cluster_id = "$PROD_ID"
+              fqdn       = "$PROD_FQDN"
+            }
+          }
+          EOF
+          terraform init -input=false
+          terraform apply -auto-approve -input=false
+
+      - name: Verify connectivity from a consumer pod
+        run: |
+          set -euo pipefail
+          az aks get-credentials -g "$RG" -n e2e-consumer --overwrite-existing
+          FQDN=$(az aks show -g "$RG" -n e2e-producer --query privateFqdn -o tsv)
+          PE_IP=$(terraform -chdir="$BASE/private-endpoints" output -json private_endpoint_ips | jq -r '.e2e')
+          echo "PE IP = $PE_IP"
+          kubectl run nettest --image=nicolaka/netshoot --restart=Never --command -- sleep 600
+          kubectl wait --for=condition=Ready pod/nettest --timeout=180s
+          RESOLVED=$(kubectl exec nettest -- dig +short "$FQDN" | tail -1)
+          echo "resolved=$RESOLVED expected=$PE_IP"
+          test "$RESOLVED" = "$PE_IP"
+          CODE=$(kubectl exec nettest -- curl -sk --max-time 10 -o /dev/null -w '%{http_code}' "https://$FQDN/healthz")
+          echo "api http_code=$CODE (401 = reached over the private endpoint)"
+          test "$CODE" = "401"
+
+      # Exercise the module DELETE path before the RG nuke. Order matters: drop
+      # the private endpoint first, then the clusters, then the vnets.
+      - name: Destroy (delete path)
+        run: |
+          set -euo pipefail
+          terraform -chdir="$BASE/private-endpoints" destroy -auto-approve -input=false
+          az aks delete -g "$RG" -n e2e-producer --yes
+          az aks delete -g "$RG" -n e2e-consumer --yes
+          terraform -chdir="$BASE/vnet" destroy -auto-approve -input=false -state=cons.tfstate \
+            -var resource_group_name="$RG" -var location="$LOCATION" \
+            -var name_prefix=e2econs -var vnet_cidr="$CONS_VNET_CIDR"
+          terraform -chdir="$BASE/vnet" destroy -auto-approve -input=false -state=prod.tfstate \
+            -var resource_group_name="$RG" -var location="$LOCATION" \
+            -var name_prefix=e2eprod -var vnet_cidr="$PROD_VNET_CIDR"
+
+      - name: Cleanup resource group (always — backstop)
+        if: always()
+        run: az group delete -n "$RG" --yes --no-wait || true

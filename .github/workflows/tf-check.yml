@@ -1,0 +1,47 @@
+name: tf-check
+
+# Cheap PR gate: format, validate, and run the offline (mock_provider) tests for
+# both modules. No Azure credentials needed.
+
+on:
+  pull_request:
+    paths:
+      - "cielara-enterprise-cloud-network/**"
+      - ".github/workflows/tf-check.yml"
+  push:
+    branches: [main]
+    paths:
+      - "cielara-enterprise-cloud-network/**"
+      - ".github/workflows/tf-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [vnet, private-endpoints]
+    defaults:
+      run:
+        working-directory: cielara-enterprise-cloud-network/azure/${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: fmt
+        run: terraform fmt -check -recursive
+
+      - name: init (no backend)
+        run: terraform init -backend=false -input=false
+
+      - name: validate
+        run: terraform validate
+
+      - name: test (offline, mock_provider)
+        run: terraform test

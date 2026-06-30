@@ -39,6 +39,13 @@ output "postgres_subnet_name" {
   value       = azurerm_subnet.postgres.name
 }
 
+# Consumed by the sibling private-endpoints module, NOT part of the Cielara
+# handback — this subnet carries egress private endpoints to remote clusters.
+output "pe_subnet_name" {
+  description = "Subnet name for private endpoints (input to the private-endpoints module)"
+  value       = azurerm_subnet.pe.name
+}
+
 #################################################
 # Handback
 #
