@@ -8,7 +8,7 @@ crash.log
 *.tfvars
 !*.tfvars.example
 .claude/
-# Keep .terraform.lock.hcl committed (provider pinning) — not ignored.
+.terraform.lock.hcl
 
 # Local scratch (CLI scripts, throwaway)
 tmp/
