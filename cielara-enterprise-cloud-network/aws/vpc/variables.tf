@@ -29,21 +29,23 @@ variable "cielara_client_id" {
 # Network sizing
 #################################################
 variable "vpc_cidr" {
-  # Layout mirrors the network Cielara Enterprise would otherwise create for
-  # you: two private subnets at <cidr> newbits 4 (a /20 each for the default
-  # /16 — EKS nodes AND pods draw IPs from them, so they are the big ones) and
-  # two public subnets at newbits 8 (a /24 each for the default /16 — load
-  # balancers only).
-  description = "CIDR for the Cielara Enterprise VPC (a /16 is recommended, /19 is the minimum). Private node subnets are carved at +4 bits, public load-balancer subnets at +8 bits."
+  # Sized like the Azure module's vnet_cidr (10.2.0.0/20): a /20 (4096
+  # addresses) comfortably holds two private /22 node subnets (EKS nodes AND
+  # pods draw IPs from them under the AWS VPC CNI, so they are the big ones)
+  # and two public /26 load-balancer subnets, with the tail left free for
+  # growth. Far less of your internal address space than a /16.
+  description = "CIDR for the Cielara Enterprise VPC (a /20 is recommended). Private node subnets are carved at +2 bits (/22 each for a /20), public load-balancer subnets at +6 bits (/26 each)."
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "10.2.0.0/20"
 
   validation {
-    # Public subnets are carved 8 bits below the base. AWS Application Load
-    # Balancers require at least a /27 per subnet, so the base must be /19 or
-    # larger. Bigger blocks (/18, /17, /16, …) are fine — the subnets scale up.
-    condition     = tonumber(split("/", var.vpc_cidr)[1]) <= 19
-    error_message = "vpc_cidr must be /19 or larger (e.g. /16). A smaller block carves public subnets below /27, the AWS ALB minimum."
+    # Public subnets are carved 6 bits below the base and AWS Application Load
+    # Balancers require at least a /27 per subnet, so /21 is the hard floor —
+    # but a /21 also halves the node subnets to /23 (~500 usable IPs each),
+    # which the pod-dense VPC CNI can exhaust. Require /20 or larger; bigger
+    # blocks (/19, /18, …) are fine — the subnets just scale up.
+    condition     = tonumber(split("/", var.vpc_cidr)[1]) <= 20
+    error_message = "vpc_cidr must be /20 or larger (e.g. /20, /19, /18). A smaller block carves the public subnets below /27 (the AWS ALB minimum) and leaves too little pod IP space in the node subnets."
   }
 }
 

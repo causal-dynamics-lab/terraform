@@ -12,8 +12,8 @@ region = "us-east-1"
 # name_prefix       = "cielara"
 
 # --- Network sizing -----------------------------------------------------------
-# Default is 10.0.0.0/16. Must be /19 or larger.
-# vpc_cidr = "10.0.0.0/16"
+# Default is 10.2.0.0/20. Must be /20 or larger.
+# vpc_cidr = "10.2.0.0/20"
 
 # --- Placement / resilience ---------------------------------------------------
 # Leave unset to use the region's first two AZs.

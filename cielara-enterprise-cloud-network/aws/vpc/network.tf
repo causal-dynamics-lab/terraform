@@ -2,14 +2,15 @@
 # Locals — subnet layout
 #
 # Sized for the Cielara Enterprise workload, derived from var.vpc_cidr
-# (default 10.0.0.0/16). EKS runs the AWS VPC CNI (pods draw IPs from the node
-# subnets), so the private subnets are the big ones:
-#   private[0..1]  <cidr> +4 bits  (/20 for a /16, 4096 each)  EKS nodes + pods
-#   public[0..1]   <cidr> +8 bits  (/24 for a /16, 256 each)   ALB/NLB only
-# For the default 10.0.0.0/16: private 10.0.0.0/20 + 10.0.16.0/20, public
-# 10.0.100.0/24 + 10.0.101.0/24 — byte-identical to the network the Cielara
-# data-plane module creates when no VPC is handed back, so adopted and created
-# deployments look the same.
+# (default 10.2.0.0/20 = 4096 addresses, mirroring the Azure module). EKS runs
+# the AWS VPC CNI (pods draw IPs from the node subnets), so the private
+# subnets are the big ones:
+#   private[0..1]  <cidr> +2 bits  (/22 for a /20, 1024 each)  EKS nodes + pods
+#   public[0..1]   <cidr> +6 bits  (/26 for a /20, 64 each)    ALB/NLB only
+# For the default 10.2.0.0/20: private 10.2.0.0/22 + 10.2.4.0/22, public
+# 10.2.8.0/26 + 10.2.8.64/26; the rest (10.2.8.128 – 10.2.15.255) is left free
+# for growth. All nodes (and RDS + EFS) live in the private subnets; the
+# public pair exists only for NAT gateways and internet-facing load balancers.
 #################################################
 data "aws_availability_zones" "available" {
   state = "available"
@@ -18,8 +19,8 @@ data "aws_availability_zones" "available" {
 locals {
   azs = length(var.availability_zones) == 2 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, 2)
 
-  private_subnet_cidrs = [cidrsubnet(var.vpc_cidr, 4, 0), cidrsubnet(var.vpc_cidr, 4, 1)]
-  public_subnet_cidrs  = [cidrsubnet(var.vpc_cidr, 8, 100), cidrsubnet(var.vpc_cidr, 8, 101)]
+  private_subnet_cidrs = [cidrsubnet(var.vpc_cidr, 2, 0), cidrsubnet(var.vpc_cidr, 2, 1)]
+  public_subnet_cidrs  = [cidrsubnet(var.vpc_cidr, 6, 32), cidrsubnet(var.vpc_cidr, 6, 33)]
 
   nat_count = var.ha_nat ? length(local.azs) : 1
 
