@@ -89,7 +89,7 @@ too: `terraform apply -var-file=prod.tfvars`.
 | Dir | Status |
 |-----|--------|
 | [`azure/`](azure/) | **Available** — Azure VNet + subnets + NAT for Cielara Enterprise |
-| [`aws/`](aws/) | **Available** — AWS VPC + subnets + NAT for Cielara Enterprise (EKS) |
+| [`aws/`](aws/) | **Available** — AWS VPC + subnets + NAT for Cielara Enterprise (EKS); optional [`remote-cluster-connectivity`](aws/remote-cluster-connectivity/) for private EKS API reachability |
 
 A GCP module is planned but not yet published here — it'll land as a sibling
 `gcp/` directory following the same contract.

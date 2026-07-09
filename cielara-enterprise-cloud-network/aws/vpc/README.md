@@ -17,8 +17,11 @@ VPC instead of creating its own.
 | Route tables + associations | public → IGW, private → NAT |
 
 It does **not** create the EKS cluster, RDS instance, EFS filesystem, load
-balancers, or security groups — Cielara creates those after handback as part
-of your Cielara Enterprise deployment.
+balancers, security groups, or VPC peering to remote clusters — Cielara creates
+those after handback as part of your Cielara Enterprise deployment. For reaching
+**remote private EKS clusters** over peering, apply the sibling
+[`remote-cluster-connectivity`](../remote-cluster-connectivity/) module after this
+one.
 
 ## Prerequisites
 
@@ -53,6 +56,9 @@ Copy the JSON it prints and send it to Cielara. Shape:
   "public_subnet_ids": ["subnet-0ccc...", "subnet-0ddd..."]
 }
 ```
+
+Additional outputs for the sibling `remote-cluster-connectivity` module:
+`vpc_cidr`, `private_route_table_ids`.
 
 ## Bringing a VPC you already have
 

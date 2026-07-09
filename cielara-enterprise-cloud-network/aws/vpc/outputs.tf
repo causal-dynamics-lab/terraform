@@ -14,6 +14,16 @@ output "vpc_id" {
   value       = aws_vpc.main.id
 }
 
+output "vpc_cidr" {
+  description = "VPC CIDR block (for remote-cluster-connectivity overlap checks)"
+  value       = var.vpc_cidr
+}
+
+output "private_route_table_ids" {
+  description = "Private route table IDs — one per NAT gateway (shared or per-AZ); used by remote-cluster-connectivity for peering routes"
+  value       = aws_route_table.private[*].id
+}
+
 output "private_subnet_ids" {
   description = "Private subnet IDs (EKS nodes, RDS, EFS) — one per AZ"
   value       = aws_subnet.private[*].id
