@@ -1,0 +1,32 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
+
+# --- AWS ----------------------------------------------------------------------
+# Credentials come from the standard AWS chain (env vars, AWS_PROFILE, SSO).
+region = "us-east-2"
+
+# --- Network handles (copy from the vpc module outputs) -----------------------
+vpc_id = "vpc-0123456789abcdef0"
+vpc_cidr = "10.2.0.0/20"
+private_route_table_ids = ["rtb-0aaa...", "rtb-0bbb..."]
+
+# --- Ownership / naming -------------------------------------------------------
+# cielara_client_id = "<client id Cielara gave you>"
+# name_prefix       = "cielara"
+
+# --- Remote private EKS clusters to reach -------------------------------------
+# One entry per remote cluster. Key = short stable label (used in resource names).
+#   cluster_name    : remote EKS cluster name
+#   remote_vpc_id   : VPC hosting the cluster
+#   remote_vpc_cidr : that VPC's CIDR (must NOT overlap vpc_cidr above)
+#   api_endpoint    : private API hostname (https:// optional), e.g.
+#                     aws eks describe-cluster --name <n> --query 'cluster.endpoint' -o text
+#   api_endpoint_ips: optional — set when ENI discovery is not possible (cross-account)
+#   remote_route_table_ids: optional — same-account return routes on the remote VPC
+remote_clusters = {
+  # prod-workloads = {
+  #   cluster_name    = "prod-eks"
+  #   remote_vpc_id   = "vpc-0def..."
+  #   remote_vpc_cidr = "10.10.0.0/20"
+  #   api_endpoint    = "A1B2C3D4.gr7.us-east-2.eks.amazonaws.com"
+  # }
+}
