@@ -7,9 +7,10 @@ supporting resources. One root module per deployment target:
 | Module | Deployment target |
 |---|---|
 | [`gke/`](gke/) | Google Kubernetes Engine |
+| [`gcp/`](gcp/) | GCP virtual machine |
 
-(GCP VM, EKS, AKS, and AWS VM follow the same pattern and are published as
-they land.)
+(EKS, AKS, and AWS VM follow the same pattern and are published as they
+land.)
 
 Each module is self-contained: `cd` into it, provide a `terraform.tfvars` (the
 Cielara deploy form serves a pre-filled one), then `terraform init && terraform

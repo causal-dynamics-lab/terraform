@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (or download the pre-filled one from the Cielara
+# deploy form) and fill in your values.
+
+# GCP project Cielara will deploy into.
+project_id = "my-gcp-project"
+
+# Set false to keep an existing deployer key untouched.
+# create_key = true
+
+# Where the deployer key file is written on apply.
+# key_output_path = "cielara-key.json"
