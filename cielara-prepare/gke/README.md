@@ -52,9 +52,29 @@ The Terraform state contains the deployer service account's private key.
 
 ## Already prepared with the script, or lost your state?
 
-A migration path (`migrate = true`) that imports the script-created resources
-into Terraform state without recreating them ships in a follow-up module
-revision. Until then, keep using the script-prepared resources as-is.
+Set `migrate = true` (with `create_key = false`) and apply: every existing
+prepare resource is imported into state instead of recreated — nothing
+changes in your project, your current `cielara-key.json` keeps working, and
+active Cielara deployments are untouched.
+
+```hcl
+# terraform.tfvars
+project_id = "my-gcp-project"
+migrate    = true
+create_key = false
+```
+
+```bash
+terraform init
+terraform apply     # imports, creates nothing new
+terraform plan      # must report: No changes.
+```
+
+Verify the plan is empty before relying on the migrated state. The existing
+deployer key cannot be imported (Terraform does not support it); it simply
+stays as it is — rotate it through the Cielara credential UI if you ever need
+to. After the first successful apply, set `migrate` back to false (or leave
+it — imports of already-managed resources are skipped).
 
 ## Rotation and teardown
 

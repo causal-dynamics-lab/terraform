@@ -4,9 +4,10 @@
 # GCP project Cielara will deploy into.
 project_id = "my-gcp-project"
 
-# Set false to keep an existing deployer key untouched (e.g. when adopting
-# resources prepared by prepare-gke.sh).
-# create_key = true
+# Adopting resources that already exist (prepared by prepare-gke.sh, or state
+# lost)? Set both of these — see "Already prepared with the script" in README.
+# migrate    = true
+# create_key = false
 
 # Where the deployer key file is written on apply.
 # key_output_path = "cielara-key.json"
