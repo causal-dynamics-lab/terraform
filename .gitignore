@@ -12,3 +12,7 @@ crash.log
 
 # Local scratch (CLI scripts, throwaway)
 tmp/
+
+# Prepare-module handback files — credentials, never commit
+cielara-key.json
+cielara-creds.json
