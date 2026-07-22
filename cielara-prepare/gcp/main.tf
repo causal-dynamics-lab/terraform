@@ -74,7 +74,7 @@ resource "google_project_iam_custom_role" "vm_secret_manager" {
   project     = var.project_id
   role_id     = "cielaraVmSecretManager"
   title       = "Cielara VM Secret Manager"
-  description = "Least-privilege secret + version CRUD for the GCP VM SA. No setIamPolicy (pentest B4)."
+  description = "Least-privilege secret + version CRUD for the GCP VM SA. No setIamPolicy."
   permissions = local.vm_secret_manager_permissions
   stage       = "GA"
 }

@@ -12,7 +12,7 @@ back in the Cielara deploy form. No Cielara identity is added to your tenant.
 | Entra application + SP | `cielara_aks_deployer_<cielara-client-id>` | Identity the Cielara control plane deploys as |
 | Client secret | — | Its credential (only when `create_secret = true`) |
 | Role assignment | Contributor (subscription scope) | Create/manage the cluster, database, key vault, storage, gateway, network, identities |
-| Role assignment | Role Based Access Control Administrator (subscription scope, ABAC-constrained) | Lets the deploy create its own role assignments — constrained to the exact roles the deploy uses, so it cannot self-escalate to Owner |
+| Role assignment | Role Based Access Control Administrator (subscription scope, constrained to the exact roles the deploy assigns) | Lets the deploy create the role assignments it needs |
 | Credentials file | `cielara-creds.json` | The handback — upload it in the Cielara deploy form |
 
 The service principal is named per deployment on purpose: resetting one

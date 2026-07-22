@@ -14,8 +14,8 @@ your account.
 | Inline role policy | `cielara_eks_deployer_<cielara-client-id>` | Service-scoped grant (EKS, RDS, EFS, Secrets Manager, ACM, ELB + supporting EC2/IAM) — not AdministratorAccess; IAM management is fenced to Cielara-named resources |
 | Credentials file | `cielara-creds.json` | The handback — upload it in the Cielara deploy form (written on fresh prepare and adoption alike) |
 
-The role is named per tenant on purpose: two Cielara tenants can onboard
-into the same AWS account without clobbering each other's trust policy.
+The role is named per tenant: each Cielara tenant onboarding into the same
+AWS account gets its own role and trust policy.
 
 ## Usage
 

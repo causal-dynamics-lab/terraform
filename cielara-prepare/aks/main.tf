@@ -1,16 +1,12 @@
-# Prepares a customer Azure subscription for a Cielara AKS deployment: the
-# service principal the control plane authenticates as, plus its two
-# subscription-scoped role assignments. Names and role sets must stay in
-# lockstep with prepare-aks.sh (parity-tested in the Cielara control plane).
+# Prepares your Azure subscription for a Cielara AKS deployment: the service
+# principal the Cielara control plane deploys as, plus its two
+# subscription-scoped role assignments. Every name below is load-bearing —
+# do not rename.
 
 locals {
-  # Per-deployment name: resetting one deployment's secret must never
-  # invalidate another deployment's stored credential.
   sp_name = "cielara_aks_deployer_${var.cielara_client_id}"
 
-  # Built-in role definition ids the deployer may assign/unassign — exactly
-  # the roles the AKS deploy uses. Owner and the RBAC-granting roles are
-  # excluded so the SP cannot escalate its own access.
+  # Built-in Azure role definition ids the deployer may assign.
   rbac_admin_role_guids = [
     "b24988ac-6180-42a0-ab88-20f7382dd24c", # Contributor
     "4d97b98b-1d4f-4787-a291-c67834d212e7", # Network Contributor
@@ -42,8 +38,7 @@ locals {
     )
   EOT
 
-  # Needed by the deploy but not managed here: Terraform cannot adopt an
-  # existing provider registration. Registration command in the README.
+  # Not managed by this module — see the README for the registration command.
   required_resource_providers = [
     "Microsoft.Network",
     "Microsoft.ContainerService",
@@ -79,9 +74,6 @@ resource "azurerm_role_assignment" "contributor" {
   role_definition_name = "Contributor"
   principal_id         = azuread_service_principal.deployer.object_id
 
-  # A freshly created SP lags Entra replication; without this the assignment
-  # fails on "principal not found". Create-time only — role assignments cannot
-  # be updated, so adopted (imported) ones must not diff on it.
   skip_service_principal_aad_check = true
 
   lifecycle {
@@ -89,17 +81,12 @@ resource "azurerm_role_assignment" "contributor" {
   }
 }
 
-# The deploy creates role assignments of its own, which Contributor alone
-# cannot; the ABAC condition restricts it to the allowlisted roles above.
 resource "azurerm_role_assignment" "rbac_admin" {
   scope                = local.subscription_scope
   role_definition_name = "Role Based Access Control Administrator"
   principal_id         = azuread_service_principal.deployer.object_id
-  # trimspace: the script writes the condition without a trailing newline, and
-  # azurerm replaces the whole assignment on any condition change — the
-  # heredoc's final newline alone would force destroy/recreate on adoption.
-  condition         = trimspace(local.rbac_admin_condition)
-  condition_version = "2.0"
+  condition            = trimspace(local.rbac_admin_condition)
+  condition_version    = "2.0"
 
   skip_service_principal_aad_check = true
 
@@ -108,11 +95,10 @@ resource "azurerm_role_assignment" "rbac_admin" {
   }
 }
 
-# The handback: paste this file's contents in the Cielara deploy form. With
-# create_secret = false (adoption) the secret is omitted — Azure cannot read
-# an existing one back; your current secret keeps working. The secret also
-# lives in the Terraform state — protect the state like a credential (see
-# backend.tf).
+# Upload this file in the Cielara deploy form. With create_secret = false
+# the secret is omitted — enter your existing one in the form manually. The
+# secret also lives in the Terraform state — protect the state like a
+# credential (see backend.tf).
 resource "local_sensitive_file" "creds" {
   filename        = var.creds_output_path
   file_permission = "0600"
