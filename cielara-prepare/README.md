@@ -9,8 +9,9 @@ supporting resources. One root module per deployment target:
 | [`gke/`](gke/) | Google Kubernetes Engine |
 | [`gcp/`](gcp/) | GCP virtual machine |
 | [`aks/`](aks/) | Azure Kubernetes Service |
+| [`eks/`](eks/) | Amazon Elastic Kubernetes Service |
 
-(EKS and AWS VM follow the same pattern and are published as they land.)
+(AWS VM follows the same pattern and is published as it lands.)
 
 ## Quick start
 
@@ -32,10 +33,11 @@ supporting resources. One root module per deployment target:
    terraform apply
    ```
 
-4. The apply writes a handback file (`cielara-key.json` or
-   `cielara-creds.json`) into the module directory. Upload it in the Cielara
-   deploy form. Treat it like a password and delete it once uploaded — it can
-   be regenerated from the module.
+4. The apply produces a handback: a credentials file (`cielara-key.json` or
+   `cielara-creds.json`) written into the module directory, or for EKS a
+   single `terraform output -raw role_arn`. Upload or paste it in the
+   Cielara deploy form. Treat credential files like passwords and delete
+   them once uploaded — they can be regenerated from the module.
 
 ## Keep your Terraform state — and keep it safe
 

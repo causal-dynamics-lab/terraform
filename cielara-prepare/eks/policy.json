@@ -1,0 +1,160 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DataPlaneServices",
+      "Effect": "Allow",
+      "Action": [
+        "eks:*",
+        "ec2:*",
+        "autoscaling:*",
+        "application-autoscaling:*",
+        "elasticloadbalancing:*",
+        "elasticfilesystem:*",
+        "rds:*",
+        "mq:*",
+        "acm:*",
+        "kms:*",
+        "logs:*",
+        "cloudwatch:*",
+        "ecr:*",
+        "tag:GetResources",
+        "tag:TagResources",
+        "tag:UntagResources"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SecretsManagerTenantScoped",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:DeleteSecret",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:PutSecretValue",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:RestoreSecret",
+        "secretsmanager:ListSecretVersionIds",
+        "secretsmanager:GetResourcePolicy",
+        "secretsmanager:TagResource",
+        "secretsmanager:UntagResource"
+      ],
+      "Resource": "arn:aws:secretsmanager:*:*:secret:cielara/*"
+    },
+    {
+      "Sid": "SecretsManagerList",
+      "Effect": "Allow",
+      "Action": "secretsmanager:ListSecrets",
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamManageCielaraDataPlaneRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListInstanceProfilesForRole",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion",
+        "iam:TagPolicy",
+        "iam:UntagPolicy",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:GetInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:CreateOpenIDConnectProvider",
+        "iam:DeleteOpenIDConnectProvider",
+        "iam:GetOpenIDConnectProvider",
+        "iam:TagOpenIDConnectProvider",
+        "iam:UpdateOpenIDConnectProviderThumbprint"
+      ],
+      "Resource": [
+        "arn:aws:iam::*:role/cdl-*",
+        "arn:aws:iam::*:role/cielara-*",
+        "arn:aws:iam::*:policy/cdl-*",
+        "arn:aws:iam::*:policy/cielara-*",
+        "arn:aws:iam::*:instance-profile/cdl-*",
+        "arn:aws:iam::*:instance-profile/cielara-*",
+        "arn:aws:iam::*:oidc-provider/oidc.eks.*"
+      ]
+    },
+    {
+      "Sid": "IamListOidcProvidersAccountLevel",
+      "Effect": "Allow",
+      "Action": "iam:ListOpenIDConnectProviders",
+      "Resource": "*"
+    },
+    {
+      "Sid": "IamPassRoleToDataPlaneServices",
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": [
+        "arn:aws:iam::*:role/cdl-*",
+        "arn:aws:iam::*:role/cielara-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "eks.amazonaws.com",
+            "ec2.amazonaws.com",
+            "rds.amazonaws.com",
+            "elasticloadbalancing.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "IamReadServiceLinkedRoles",
+      "Effect": "Allow",
+      "Action": "iam:GetRole",
+      "Resource": [
+        "arn:aws:iam::*:role/aws-service-role/eks.amazonaws.com/*",
+        "arn:aws:iam::*:role/aws-service-role/eks-nodegroup.amazonaws.com/*",
+        "arn:aws:iam::*:role/aws-service-role/eks-fargate.amazonaws.com/*",
+        "arn:aws:iam::*:role/aws-service-role/elasticloadbalancing.amazonaws.com/*",
+        "arn:aws:iam::*:role/aws-service-role/autoscaling.amazonaws.com/*",
+        "arn:aws:iam::*:role/aws-service-role/rds.amazonaws.com/*",
+        "arn:aws:iam::*:role/aws-service-role/spot.amazonaws.com/*",
+        "arn:aws:iam::*:role/aws-service-role/mq.amazonaws.com/*"
+      ]
+    },
+    {
+      "Sid": "ServiceLinkedRoles",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "iam:AWSServiceName": [
+            "eks.amazonaws.com",
+            "eks-nodegroup.amazonaws.com",
+            "eks-fargate.amazonaws.com",
+            "elasticloadbalancing.amazonaws.com",
+            "autoscaling.amazonaws.com",
+            "rds.amazonaws.com",
+            "spot.amazonaws.com",
+            "mq.amazonaws.com"
+          ]
+        }
+      }
+    }
+  ]
+}
