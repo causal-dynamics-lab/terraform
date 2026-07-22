@@ -48,9 +48,11 @@ The state file is the module's memory of what it created, and with
 - **Sync it to storage you own.** Local state works for a single operator on
   one machine. For a team — or to survive a lost laptop — use a remote
   backend in **your own** cloud: each module's `backend.tf` ships commented
-  `gcs` / `s3` / `azurerm` examples. Uncomment one, point it at a versioned
+  `gcs` / `s3` / `azurerm` examples, and any of the three works no matter
+  which cloud Cielara deploys into. Uncomment one, point it at a versioned
   bucket you own, and run `terraform init` (add `-migrate-state` if you
-  already applied with local state).
+  already applied with local state). How that bucket is secured, versioned,
+  and managed is up to you — it is your infrastructure.
 - **Never send it to Cielara.** Cielara never needs your state; nothing in
   the product asks for it, and no support flow requires it.
 
