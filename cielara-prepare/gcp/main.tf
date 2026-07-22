@@ -25,23 +25,45 @@ locals {
   ]
 
   # Minimal role set for VM provisioning: instance + network + LB management,
-  # IAP tunnel access for the operator path, Cloud SQL and Secret Manager for
-  # the data layer. Broader than the GKE flavor by design (GCE VMs need
-  # instanceAdmin, securityAdmin, storageAdmin, IAP).
+  # IAP tunnel access for the operator path, Cloud SQL for the data layer.
+  # Broader than the GKE flavor by design (GCE VMs need instanceAdmin,
+  # securityAdmin, storageAdmin, IAP). Secret Manager access is granted via
+  # the custom role below, not a predefined role.
   deployer_roles = [
     "roles/compute.instanceAdmin.v1",
     "roles/compute.networkUser",
     "roles/compute.networkAdmin",
     "roles/compute.loadBalancerAdmin",
     "roles/iam.serviceAccountUser",
-    "roles/secretmanager.secretAccessor",
-    "roles/secretmanager.admin",
     "roles/compute.securityAdmin",
     "roles/compute.storageAdmin",
     "roles/logging.logWriter",
     "roles/iap.tunnelResourceAccessor",
     "roles/cloudsql.admin",
     "roles/servicenetworking.networksAdmin",
+  ]
+
+  # Least-privilege Secret Manager custom role instead of
+  # roles/secretmanager.admin (pentest B4). The VM path uses one SA for both
+  # provisioning and runtime and never binds per-secret IAM, so it does not
+  # need admin's secrets.setIamPolicy - excluded deliberately so a leaked key
+  # cannot re-grant access to arbitrary project secrets. Project scope is
+  # unavoidable: secrets.create targets the project parent.
+  # versions.enable/disable: google_secret_manager_secret_version reconciles
+  # the version's enabled state on every apply - without them PrepareDatabase
+  # 403s on 'secretmanager.versions.enable'.
+  vm_secret_manager_permissions = [
+    "secretmanager.secrets.create",
+    "secretmanager.secrets.get",
+    "secretmanager.secrets.list",
+    "secretmanager.secrets.delete",
+    "secretmanager.versions.access",
+    "secretmanager.versions.add",
+    "secretmanager.versions.get",
+    "secretmanager.versions.list",
+    "secretmanager.versions.enable",
+    "secretmanager.versions.disable",
+    "secretmanager.versions.destroy",
   ]
 }
 
@@ -69,6 +91,21 @@ resource "google_project_iam_member" "deployer" {
 
   project = var.project_id
   role    = each.value
+  member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+resource "google_project_iam_custom_role" "vm_secret_manager" {
+  project     = var.project_id
+  role_id     = "cielaraVmSecretManager"
+  title       = "Cielara VM Secret Manager"
+  description = "Least-privilege secret + version CRUD for the GCP VM SA. No setIamPolicy (pentest B4)."
+  permissions = local.vm_secret_manager_permissions
+  stage       = "GA"
+}
+
+resource "google_project_iam_member" "deployer_vm_secret_manager" {
+  project = var.project_id
+  role    = google_project_iam_custom_role.vm_secret_manager.id
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
 
