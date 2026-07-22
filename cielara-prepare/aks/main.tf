@@ -61,7 +61,6 @@ data "azuread_client_config" "current" {}
 
 resource "azuread_application" "deployer" {
   display_name = local.sp_name
-  tags         = ["cielara-client:${var.cielara_client_id}"]
 }
 
 resource "azuread_service_principal" "deployer" {
@@ -81,8 +80,13 @@ resource "azurerm_role_assignment" "contributor" {
   principal_id         = azuread_service_principal.deployer.object_id
 
   # A freshly created SP lags Entra replication; without this the assignment
-  # fails on "principal not found".
+  # fails on "principal not found". Create-time only — role assignments cannot
+  # be updated, so adopted (imported) ones must not diff on it.
   skip_service_principal_aad_check = true
+
+  lifecycle {
+    ignore_changes = [skip_service_principal_aad_check]
+  }
 }
 
 # The deploy creates role assignments of its own, which Contributor alone
@@ -91,10 +95,17 @@ resource "azurerm_role_assignment" "rbac_admin" {
   scope                = local.subscription_scope
   role_definition_name = "Role Based Access Control Administrator"
   principal_id         = azuread_service_principal.deployer.object_id
-  condition            = local.rbac_admin_condition
-  condition_version    = "2.0"
+  # trimspace: the script writes the condition without a trailing newline, and
+  # azurerm replaces the whole assignment on any condition change — the
+  # heredoc's final newline alone would force destroy/recreate on adoption.
+  condition         = trimspace(local.rbac_admin_condition)
+  condition_version = "2.0"
 
   skip_service_principal_aad_check = true
+
+  lifecycle {
+    ignore_changes = [skip_service_principal_aad_check]
+  }
 }
 
 # The handback: paste this file's contents in the Cielara deploy form. With

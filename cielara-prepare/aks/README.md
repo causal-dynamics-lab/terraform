@@ -78,10 +78,10 @@ terraform init
 terraform plan
 ```
 
-Check the plan: it must show only imports — nothing added, nothing
-destroyed. (One exception: a role-assignment condition written by an older
-setup can differ in whitespace and show a one-time in-place update; that is
-cosmetic.) Then:
+Check the plan: it must show only the 4 imports plus the creation of
+`cielara-creds.json` — nothing changed, nothing destroyed. If it wants to
+**replace** a role assignment, stop: the ABAC condition drifted (Azure
+replaces an assignment on any condition change, even whitespace). Then:
 
 ```bash
 terraform apply
