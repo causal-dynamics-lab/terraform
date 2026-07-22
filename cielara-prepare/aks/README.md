@@ -89,7 +89,10 @@ terraform plan   # must print: No changes.
 ```
 
 Your existing client secret keeps working (`create_secret = false` is set by
-the discover script), and active Cielara deployments are untouched.
+the discover script), and active Cielara deployments are untouched. The
+apply still writes `cielara-creds.json` — without the `client_secret` field,
+since Azure cannot read an existing secret back — so you can paste it in the
+deploy form and only fill the secret manually.
 
 ## Rotating the client secret
 

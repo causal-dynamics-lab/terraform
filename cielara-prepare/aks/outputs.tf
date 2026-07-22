@@ -14,8 +14,8 @@ output "tenant_id" {
 }
 
 output "creds_file" {
-  description = "Path of the credentials handback file to upload in the Cielara deploy form (null when create_secret = false)"
-  value       = var.create_secret ? var.creds_output_path : null
+  description = "Path of the credentials handback file for the Cielara deploy form (written without client_secret when create_secret = false)"
+  value       = var.creds_output_path
 }
 
 output "required_resource_providers" {
