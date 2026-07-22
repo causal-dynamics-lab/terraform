@@ -8,9 +8,9 @@ supporting resources. One root module per deployment target:
 |---|---|
 | [`gke/`](gke/) | Google Kubernetes Engine |
 | [`gcp/`](gcp/) | GCP virtual machine |
+| [`aks/`](aks/) | Azure Kubernetes Service |
 
-(EKS, AKS, and AWS VM follow the same pattern and are published as they
-land.)
+(EKS and AWS VM follow the same pattern and are published as they land.)
 
 ## Quick start
 
