@@ -23,3 +23,9 @@ variable "migrate" {
   type        = bool
   default     = false
 }
+
+variable "creds_output_path" {
+  description = "Where to write the credentials handback file"
+  type        = string
+  default     = "cielara-creds.json"
+}

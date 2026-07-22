@@ -12,6 +12,7 @@ your account.
 |---|---|---|
 | IAM role | `cielara_eks_deployer_<cielara-client-id>` | Identity the Cielara control plane deploys as |
 | Inline role policy | `cielara_eks_deployer_<cielara-client-id>` | Service-scoped grant (EKS, RDS, EFS, Secrets Manager, ACM, ELB + supporting EC2/IAM) — not AdministratorAccess; IAM management is fenced to Cielara-named resources |
+| Credentials file | `cielara-creds.json` | The handback — upload it in the Cielara deploy form (written on fresh prepare and adoption alike) |
 
 The role is named per tenant on purpose: two Cielara tenants can onboard
 into the same AWS account without clobbering each other's trust policy.
@@ -37,13 +38,10 @@ terraform init
 terraform apply
 ```
 
-The handback is a single value:
-
-```bash
-terraform output -raw role_arn
-```
-
-Paste it in the **Role ARN** field of the Cielara deploy form.
+The apply writes `cielara-creds.json` (holding the deployer role ARN) into
+the working directory — upload it in the Cielara deploy form to fill the
+**Role ARN** field. `terraform output -raw role_arn` prints the same value
+if you prefer to paste it.
 
 ## Keep your Terraform state
 
@@ -70,8 +68,8 @@ terraform init
 terraform plan
 ```
 
-Check the plan: it must show only the 2 imports — nothing changed, nothing
-destroyed. Then:
+Check the plan: it must show only the 2 imports plus the creation of
+`cielara-creds.json` — nothing changed, nothing destroyed. Then:
 
 ```bash
 terraform apply

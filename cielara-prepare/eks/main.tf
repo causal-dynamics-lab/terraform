@@ -35,3 +35,14 @@ resource "aws_iam_role_policy" "deployer" {
   role   = aws_iam_role.deployer.id
   policy = file("${path.module}/policy.json")
 }
+
+# The handback: upload this file in the Cielara deploy form. The ARN is not
+# a secret — the trust policy only admits the Cielara control plane
+# presenting your External ID — but treat the file as deployment-specific.
+resource "local_sensitive_file" "creds" {
+  filename        = var.creds_output_path
+  file_permission = "0600"
+  content = jsonencode({
+    role_arn = aws_iam_role.deployer.arn
+  })
+}
