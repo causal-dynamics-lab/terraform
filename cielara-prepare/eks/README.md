@@ -23,8 +23,10 @@ the target account (an `AdministratorAccess` identity, or one scoped to
 `arn:aws:iam::*:role/cielara_eks_deployer_*`):
 
 ```bash
-aws sso login          # or static keys via: aws configure
-export AWS_REGION=<region>   # any region — the role is global
+aws configure sso                    # one-time SSO setup
+aws sso login --profile <your-profile>
+export AWS_PROFILE=<your-profile>    # or static keys via: aws configure
+export AWS_REGION=<region>           # any region — the role is global
 ```
 
 ```bash
