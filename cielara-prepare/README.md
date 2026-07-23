@@ -11,8 +11,6 @@ supporting resources. One root module per deployment target:
 | [`aks/`](aks/) | Azure Kubernetes Service |
 | [`eks/`](eks/) | Amazon Elastic Kubernetes Service |
 
-(AWS VM follows the same pattern and is published as it lands.)
-
 ## Quick start
 
 1. Clone this repository and enter the module for your deployment target:
