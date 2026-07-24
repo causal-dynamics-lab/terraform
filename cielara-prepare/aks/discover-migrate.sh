@@ -7,6 +7,13 @@
 
 set -euo pipefail
 
+# Git Bash on Windows rewrites arguments that look like POSIX paths - the
+# /subscriptions/... role-assignment scope becomes C:/Program Files/Git/... and
+# Azure rejects it with MissingSubscription. Disable that conversion (no-ops on
+# macOS/Linux; both spellings so Git Bash and plain MSYS2 are covered).
+export MSYS_NO_PATHCONV=1
+export MSYS2_ARG_CONV_EXCL="*"
+
 if [ $# -lt 1 ]; then
 	echo "Usage: $0 <CIELARA_CLIENT_ID>" >&2
 	exit 1
