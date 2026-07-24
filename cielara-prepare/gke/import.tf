@@ -1,13 +1,6 @@
-# Migration / re-adoption: set migrate = true to import resources that
-# already exist — created by prepare-gke.sh, or by this module when the state
-# was lost — instead of creating them. Every GKE prepare resource has a
-# deterministic id, so no discovery step is needed.
-#
-# The deployer key is the one thing that cannot be imported (the provider
-# does not support google_service_account_key import); set create_key = false
-# to leave the existing key untouched — the control plane already holds it.
-#
-# Acceptance gate: after `terraform apply` with migrate = true, a plain
+# Adoption of an already-prepared project (migrate = true): imports the
+# existing resources instead of creating them. The deployer key cannot be
+# imported (create_key = false keeps the existing one working). After apply,
 # `terraform plan` must show no changes.
 
 import {

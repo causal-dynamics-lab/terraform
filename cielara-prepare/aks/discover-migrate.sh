@@ -1,0 +1,50 @@
+#!/bin/bash
+# Looks up the object ids the AKS migration path needs (Azure ids are random,
+# unlike the deterministic GCP names) and writes them to migrate.auto.tfvars.
+#
+# Usage: ./discover-migrate.sh <CIELARA_CLIENT_ID>
+# Requires: az CLI logged in, target subscription selected.
+
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+	echo "Usage: $0 <CIELARA_CLIENT_ID>" >&2
+	exit 1
+fi
+
+CIELARA_CLIENT_ID="$1"
+SP_NAME="cielara_aks_deployer_${CIELARA_CLIENT_ID}"
+SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+SUB_SCOPE="/subscriptions/${SUBSCRIPTION_ID}"
+
+APP_OBJECT_ID=$(az ad app list --display-name "${SP_NAME}" --query "[0].id" --output tsv)
+APP_CLIENT_ID=$(az ad app list --display-name "${SP_NAME}" --query "[0].appId" --output tsv)
+if [ -z "${APP_OBJECT_ID}" ]; then
+	echo "Error: no Entra application named '${SP_NAME}' in this tenant." >&2
+	exit 1
+fi
+
+SP_OBJECT_ID=$(az ad sp show --id "${APP_CLIENT_ID}" --query id --output tsv)
+
+CONTRIBUTOR_ID=$(az role assignment list --assignee "${APP_CLIENT_ID}" \
+	--role "Contributor" --scope "${SUB_SCOPE}" --query "[0].id" --output tsv)
+RBAC_ADMIN_ID=$(az role assignment list --assignee "${APP_CLIENT_ID}" \
+	--role "Role Based Access Control Administrator" --scope "${SUB_SCOPE}" --query "[0].id" --output tsv)
+
+if [ -z "${CONTRIBUTOR_ID}" ] || [ -z "${RBAC_ADMIN_ID}" ]; then
+	echo "Error: expected Contributor + RBAC Administrator assignments for ${SP_NAME} at ${SUB_SCOPE}." >&2
+	echo "Found: Contributor='${CONTRIBUTOR_ID}' RBACAdmin='${RBAC_ADMIN_ID}'" >&2
+	exit 1
+fi
+
+cat > migrate.auto.tfvars <<EOF
+migrate                           = true
+create_secret                     = false
+migrate_app_object_id             = "${APP_OBJECT_ID}"
+migrate_sp_object_id              = "${SP_OBJECT_ID}"
+migrate_contributor_assignment_id = "${CONTRIBUTOR_ID}"
+migrate_rbac_admin_assignment_id  = "${RBAC_ADMIN_ID}"
+EOF
+
+echo "Wrote migrate.auto.tfvars:"
+cat migrate.auto.tfvars
