@@ -14,22 +14,29 @@ fi
 
 CIELARA_CLIENT_ID="$1"
 SP_NAME="cielara_aks_deployer_${CIELARA_CLIENT_ID}"
-SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+
+# On Windows (Git Bash), az emits CRLF line endings; the stray \r would corrupt
+# every captured id (Azure then rejects the scope with MissingSubscription).
+az_tsv() {
+	az "$@" --output tsv | tr -d '\r'
+}
+
+SUBSCRIPTION_ID=$(az_tsv account show --query id)
 SUB_SCOPE="/subscriptions/${SUBSCRIPTION_ID}"
 
-APP_OBJECT_ID=$(az ad app list --display-name "${SP_NAME}" --query "[0].id" --output tsv)
-APP_CLIENT_ID=$(az ad app list --display-name "${SP_NAME}" --query "[0].appId" --output tsv)
+APP_OBJECT_ID=$(az_tsv ad app list --display-name "${SP_NAME}" --query "[0].id")
+APP_CLIENT_ID=$(az_tsv ad app list --display-name "${SP_NAME}" --query "[0].appId")
 if [ -z "${APP_OBJECT_ID}" ]; then
 	echo "Error: no Entra application named '${SP_NAME}' in this tenant." >&2
 	exit 1
 fi
 
-SP_OBJECT_ID=$(az ad sp show --id "${APP_CLIENT_ID}" --query id --output tsv)
+SP_OBJECT_ID=$(az_tsv ad sp show --id "${APP_CLIENT_ID}" --query id)
 
-CONTRIBUTOR_ID=$(az role assignment list --assignee "${APP_CLIENT_ID}" \
-	--role "Contributor" --scope "${SUB_SCOPE}" --query "[0].id" --output tsv)
-RBAC_ADMIN_ID=$(az role assignment list --assignee "${APP_CLIENT_ID}" \
-	--role "Role Based Access Control Administrator" --scope "${SUB_SCOPE}" --query "[0].id" --output tsv)
+CONTRIBUTOR_ID=$(az_tsv role assignment list --assignee "${APP_CLIENT_ID}" \
+	--role "Contributor" --scope "${SUB_SCOPE}" --query "[0].id")
+RBAC_ADMIN_ID=$(az_tsv role assignment list --assignee "${APP_CLIENT_ID}" \
+	--role "Role Based Access Control Administrator" --scope "${SUB_SCOPE}" --query "[0].id")
 
 if [ -z "${CONTRIBUTOR_ID}" ] || [ -z "${RBAC_ADMIN_ID}" ]; then
 	echo "Error: expected Contributor + RBAC Administrator assignments for ${SP_NAME} at ${SUB_SCOPE}." >&2
