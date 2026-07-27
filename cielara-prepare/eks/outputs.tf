@@ -8,6 +8,11 @@ output "role_name" {
   value       = aws_iam_role.deployer.name
 }
 
+output "jwt_signing_key_arn" {
+  description = "AWS KMS key the data plane signs its JWTs with (dormant until the AWS KMS signer ships)"
+  value       = aws_kms_key.jwt_signing.arn
+}
+
 output "creds_file" {
   description = "Path of the credentials handback file for the Cielara deploy form"
   value       = var.creds_output_path

@@ -14,8 +14,20 @@ variable "migrate_version_resources" {
   default     = false
 }
 
+variable "region" {
+  description = "Region the Cielara deployment will run in — places the cielara-jwt KMS keyring. MUST match the region chosen in the Cielara deploy form: the control plane derives the key path from that region."
+  type        = string
+  default     = "us-central1"
+}
+
+variable "migrate" {
+  description = "Import already-existing prepare resources (created by prepare-gcp.sh, or by this module when the state was lost) instead of creating them. Pair with create_key = false to keep the existing deployer key."
+  type        = bool
+  default     = false
+}
+
 variable "create_key" {
-  description = "Create a JSON key for the deployer service account and write it to key_output_path. Set false to keep an existing key untouched."
+  description = "Create a JSON key for the deployer service account and write it to key_output_path. Set false to keep an existing key untouched (e.g. when adopting resources prepared by prepare-gcp.sh)."
   type        = bool
   default     = true
 }

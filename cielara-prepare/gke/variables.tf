@@ -8,6 +8,12 @@ variable "project_id" {
   }
 }
 
+variable "region" {
+  description = "Region the Cielara deployment will run in — places the cielara-jwt KMS keyring. MUST match the region chosen in the Cielara deploy form: the control plane derives the key path from that region."
+  type        = string
+  default     = "us-central1"
+}
+
 variable "migrate" {
   description = "Import already-existing prepare resources (created by prepare-gke.sh, or by this module when the state was lost) instead of creating them. Pair with create_key = false to keep the existing deployer key."
   type        = bool

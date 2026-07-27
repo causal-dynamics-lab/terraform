@@ -15,7 +15,15 @@ same resources with the same names. Use one or the other, not both.
 | IAM bindings | 13 project roles + 2 self-bindings | Minimal set for VM + network + Cloud SQL provisioning |
 | API enablements | 8 services | Everything the deploy's Terraform requires |
 | Bucket + object | `cielara-infra-version-<project>` / `version.json` | Version marker the Cielara control plane reads (deployer gets read on just this bucket) |
+| Service account | `cielara-app@<project>` | Identity the VM will sign JWTs as (dormant until the GCP-VM signer ships) |
+| Custom role | `cielaraAppJwtSigner` | Sign + read-public-key on the JWT key, nothing else |
+| KMS keyring + key | `cielara-jwt/jwt-signing` | Customer-owned JWT signing key (EC P-256) — Cielara never holds the private key |
+| IAM bindings | 13 project roles + 2 self-bindings | Minimal set for VM + network + Cloud SQL provisioning; signer role bound at key scope only, never to the deployer |
+| API enablements | 8 services | Everything the deploy's Terraform requires |
 | Key file | `cielara-key.json` | The handback — upload it in the Cielara deploy form |
+
+The KMS keyring lives in `region` (default `us-central1`) — set it to the
+region you will choose in the Cielara deploy form; the two must match.
 
 ## Usage
 
@@ -67,12 +75,46 @@ The Terraform state contains the deployer service account's private key.
 - **Keep the state.** Cielara occasionally extends the prepare resource set;
   re-applying this module (at the version the Cielara UI links) picks the
   additions up in place.
+- Lost the state? Re-adopt the existing resources with `migrate = true`
+  (see below) — do not delete or recreate anything.
+
+## Already prepared with the script, or lost your state?
+
+Set `migrate = true` (with `create_key = false`) and apply: every existing
+prepare resource is imported into state instead of recreated — nothing
+changes in your project, your current `cielara-key.json` keeps working, and
+active Cielara deployments are untouched.
+
+```hcl
+# terraform.tfvars
+project_id = "my-gcp-project"
+migrate    = true
+create_key = false
+```
+
+```bash
+terraform init
+terraform apply     # imports, creates nothing new
+terraform plan      # must report: No changes.
+```
+
+Verify the plan is empty before relying on the migrated state. The existing
+deployer key cannot be imported (Terraform does not support it); it simply
+stays as it is.
+
+Adopting a project prepared **before the JWT signing key existed**? Re-run
+the latest `prepare-gcp.sh` once first (idempotent) — the migrate imports
+expect the keyring, key, app account, and signer role to exist.
 
 ## Rotation and teardown
 
 - This module never rotates an existing key: `create_key = false` leaves your
   current `cielara-key.json` valid. Rotate keys through the Cielara credential
   UI, not here.
+- JWT signing key rotation is yours, not Cielara's:
+  `gcloud kms keys versions create --keyring cielara-jwt --key jwt-signing --location <region>`
 - `terraform destroy` removes the service account and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
-  shared with other workloads in the project.
+  shared with other workloads in the project. KMS keyrings and keys cannot be
+  deleted on GCP: destroy schedules the key's versions for destruction and
+  removes both from state, leaving the empty shells behind.

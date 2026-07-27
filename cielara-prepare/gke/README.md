@@ -14,12 +14,20 @@ same resources with the same names. Use one or the other, not both.
 | Service account | `cielara@<project>` | Identity the Cielara control plane deploys as |
 | Service account | `gke-node-sa@<project>` | Identity the GKE node pool runs as |
 | Service account | `cielara-app@<project>` | Identity the Cielara app assumes via Workload Identity |
+| Service account | `cielara-jwt-signer@<project>` | Identity admin-backend signs JWTs as (Workload Identity) |
 | Custom role | `cielaraAppSecretManager` | Least-privilege Secret Manager access for the app |
 | Custom role | `cielaraProvisionerFilestoreSweep` | Filestore cleanup on teardown |
 | IAM bindings | — | Minimal role sets for the three accounts |
 | API enablements | 12 services | Everything the deploy's Terraform requires |
 | Bucket + object | `cielara-infra-version-<project>` / `version.json` | Version marker the Cielara control plane reads (deployer gets read on just this bucket) |
+| Custom role | `cielaraAppJwtSigner` | Sign + read-public-key on the JWT key, nothing else |
+| KMS keyring + key | `cielara-jwt/jwt-signing` | Customer-owned JWT signing key (EC P-256) — Cielara never holds the private key |
+| IAM bindings | — | Minimal role sets for the accounts; signer role bound at key scope only |
+| API enablements | 12 services | Everything the deploy's Terraform requires |
 | Key file | `cielara-key.json` | The handback — upload it in the Cielara deploy form |
+
+The KMS keyring lives in `region` (default `us-central1`) — set it to the
+region you will choose in the Cielara deploy form; the two must match.
 
 ## Usage
 
@@ -102,12 +110,19 @@ The infra-version bucket postdates the scripts, so plain `migrate = true`
 creates it fresh. Only add `migrate_version_resources = true` when the apply
 fails with a bucket-already-exists conflict (state lost after a run that had
 already created it).
+Adopting a project prepared **before the JWT signing key existed**? Re-run
+the latest `prepare-gke.sh` once first (idempotent) — the migrate imports
+expect the keyring, key, signer account, and signer role to exist.
 
 ## Rotation and teardown
 
 - This module never rotates an existing key: `create_key = false` leaves your
   current `cielara-key.json` valid. Rotate keys through the Cielara credential
   UI, not here.
+- JWT signing key rotation is yours, not Cielara's:
+  `gcloud kms keys versions create --keyring cielara-jwt --key jwt-signing --location <region>`
 - `terraform destroy` removes the service accounts and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
-  shared with other workloads in the project.
+  shared with other workloads in the project. KMS keyrings and keys cannot be
+  deleted on GCP: destroy schedules the key's versions for destruction and
+  removes both from state, leaving the empty shells behind.

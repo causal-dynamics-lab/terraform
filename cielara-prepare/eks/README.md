@@ -13,10 +13,13 @@ your account.
 | IAM role | `cielara_eks_deployer_<cielara-client-id>` | Identity the Cielara control plane deploys as |
 | Inline role policy | `cielara_eks_deployer_<cielara-client-id>` | Service-scoped grant (EKS, RDS, EFS, Secrets Manager, ACM, ELB + supporting EC2/IAM) — not AdministratorAccess; IAM management is fenced to Cielara-named resources |
 | S3 bucket + object | `cielara-infra-version-<cielara-client-id>` / `version.json` | Version marker the Cielara control plane reads (deployer role gets read via a bucket policy) |
+| KMS key + alias | `alias/cielara-jwt-signing` | Customer-owned JWT signing key (ECC P-256) — its key policy explicitly denies the Cielara deployer roles sign and key administration; dormant until the AWS KMS signer ships |
 | Credentials file | `cielara-creds.json` | The handback — upload it in the Cielara deploy form (written on fresh prepare and adoption alike) |
 
 The role is named per tenant: each Cielara tenant onboarding into the same
-AWS account gets its own role and trust policy.
+AWS account gets its own role and trust policy. The KMS key is regional
+(created in your active `AWS_REGION`) and shared across Cielara tenants in
+the account.
 
 ## Usage
 
@@ -91,8 +94,8 @@ keep it anyway:
 
 ## Already prepared with the script, or lost your state?
 
-Both import ids derive from your Cielara client id, so there is no
-discovery step — set one variable:
+The role imports derive from your Cielara client id and the JWT signing key
+resolves through its alias, so there is no discovery step — set one variable:
 
 ```bash
 echo 'migrate = true' >> terraform.tfvars
@@ -105,6 +108,14 @@ Check the plan: it must show only the 2 imports plus new creations (the
 postdate the scripts) — nothing changed, nothing destroyed. If the plan
 instead fails with a bucket-already-exists error, an earlier run of this
 module created the bucket: also set `migrate_version_bucket = true`. Then:
+Check the plan: it must show only the 4 imports plus the creation of
+`cielara-creds.json` — nothing destroyed. One accepted in-place change: a key
+created by an older `prepare-eks.sh` keeps AWS's permissive default key
+policy, and adoption rewrites it to the hardened deployer-Deny version.
+
+Adopting an account prepared **before the JWT signing key existed**? Re-run
+the latest `prepare-eks.sh` once first (idempotent) — the alias lookup fails
+if the key is missing. Then:
 
 ```bash
 terraform apply
@@ -122,4 +133,6 @@ terraform destroy
 
 removes the role and its policy; the Cielara control plane immediately
 loses access to the account. Only do this for deployments you have already
-destroyed through Cielara.
+destroyed through Cielara. The JWT signing key cannot be deleted instantly —
+destroy schedules its deletion with AWS KMS's mandatory waiting period
+(30 days), during which you can cancel with `aws kms cancel-key-deletion`.

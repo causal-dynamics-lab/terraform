@@ -3,7 +3,9 @@
 
 locals {
   deployer_sa_id    = "cielara"
+  app_sa_id         = "cielara-app"
   deployer_sa_email = "${local.deployer_sa_id}@${var.project_id}.iam.gserviceaccount.com"
+  app_sa_email      = "${local.app_sa_id}@${var.project_id}.iam.gserviceaccount.com"
 
   apis = [
     "secretmanager.googleapis.com",
@@ -13,6 +15,7 @@ locals {
     "sqladmin.googleapis.com",
     "servicenetworking.googleapis.com",
     "cloudresourcemanager.googleapis.com",
+    "cloudkms.googleapis.com",
   ]
 
   deployer_roles = [
@@ -41,6 +44,13 @@ locals {
     "secretmanager.versions.enable",
     "secretmanager.versions.disable",
     "secretmanager.versions.destroy",
+  ]
+
+  app_kms_permissions = [
+    "cloudkms.cryptoKeyVersions.useToSign",
+    "cloudkms.cryptoKeyVersions.viewPublicKey",
+    "cloudkms.cryptoKeyVersions.list",
+    "cloudkms.cryptoKeys.get",
   ]
 }
 
@@ -95,6 +105,67 @@ resource "google_service_account_iam_member" "deployer_token_creator" {
   service_account_id = google_service_account.deployer.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# JWT signing key: a customer-owned Cloud KMS asymmetric key the Cielara data
+# plane signs its JWTs with. The private key never leaves this project's KMS —
+# Cielara's services call AsymmetricSign; Cielara's control plane and operators
+# cannot read, rotate, disable, or destroy it.
+#
+# SECURITY INVARIANT: the key is bound to the dedicated cielara-app service
+# account, NOT the deployer SA above — the deployer SA's key is held by the
+# Cielara control plane and must have zero access to the signing key.
+#
+# The keyring location must match the region chosen in the Cielara deploy form
+# — the control plane recomputes the same deterministic key path at deploy time.
+resource "google_service_account" "app" {
+  account_id   = local.app_sa_id
+  display_name = "Cielara App JWT Signing Identity"
+  project      = var.project_id
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_kms_key_ring" "jwt" {
+  name     = "cielara-jwt"
+  location = var.region
+  project  = var.project_id
+
+  depends_on = [google_project_service.apis]
+}
+
+# KMS keys cannot be deleted, only their versions disabled/destroyed. Rotation
+# and revocation stay customer-run:
+#   rotate: gcloud kms keys versions create --keyring cielara-jwt --key jwt-signing --location <region>
+#   revoke: gcloud kms keys versions disable <N> --keyring cielara-jwt --key jwt-signing --location <region>
+resource "google_kms_crypto_key" "jwt_signing" {
+  name     = "jwt-signing"
+  key_ring = google_kms_key_ring.jwt.id
+  purpose  = "ASYMMETRIC_SIGN"
+
+  version_template {
+    algorithm        = "EC_SIGN_P256_SHA256"
+    protection_level = "SOFTWARE"
+  }
+}
+
+resource "google_project_iam_custom_role" "app_jwt_signer" {
+  role_id     = "cielaraAppJwtSigner"
+  title       = "Cielara App JWT Signer"
+  description = "Sign + read public key + list versions on the cielara-jwt signing key. No version create/disable/destroy."
+  permissions = local.app_kms_permissions
+  project     = var.project_id
+  stage       = "GA"
+
+  depends_on = [google_project_service.apis]
+}
+
+# Key-resource scope, not project scope: the signer role reaches exactly this
+# one key.
+resource "google_kms_crypto_key_iam_member" "app_jwt_signer" {
+  crypto_key_id = google_kms_crypto_key.jwt_signing.id
+  role          = google_project_iam_custom_role.app_jwt_signer.id
+  member        = "serviceAccount:${google_service_account.app.email}"
 }
 
 resource "google_service_account_key" "deployer" {
