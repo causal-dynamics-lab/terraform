@@ -12,3 +12,8 @@ output "creds_file" {
   description = "Path of the credentials handback file for the Cielara deploy form"
   value       = var.creds_output_path
 }
+
+output "state_storage_url" {
+  description = "Where this module's Terraform state is kept (as supplied via state_storage_url — shown in the Cielara manage tab)"
+  value       = var.state_storage_url
+}

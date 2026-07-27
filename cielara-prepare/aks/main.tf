@@ -107,6 +107,7 @@ resource "local_sensitive_file" "creds" {
       subscription_id = var.subscription_id
       tenant_id       = data.azuread_client_config.current.tenant_id
       client_id       = azuread_application.deployer.client_id
+      storage_url     = var.state_storage_url
     },
     var.create_secret ? { client_secret = azuread_application_password.deployer[0].value } : {},
   ))

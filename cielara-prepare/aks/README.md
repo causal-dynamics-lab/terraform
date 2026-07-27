@@ -38,7 +38,8 @@ terraform apply
 ```
 
 The apply writes `cielara-creds.json` into the working directory —
-subscription id, tenant id, client id, client secret. Upload it (or paste the
+subscription id, tenant id, client id, client secret, plus the `storage_url`
+where your Terraform state is kept. Upload it (or paste the
 four values) in the Cielara deploy form, then treat it like a password.
 
 ### Resource providers

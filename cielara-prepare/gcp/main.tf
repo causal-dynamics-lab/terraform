@@ -105,10 +105,15 @@ resource "google_service_account_key" "deployer" {
 
 # Upload this file in the Cielara deploy form. The key also lives in the
 # Terraform state — protect the state like a credential (see backend.tf).
+# storage_url is a Cielara addition on top of the Google key document; GCP
+# auth ignores unknown JSON fields.
 resource "local_sensitive_file" "key" {
   count = var.create_key ? 1 : 0
 
-  filename        = var.key_output_path
-  content         = base64decode(google_service_account_key.deployer[0].private_key)
+  filename = var.key_output_path
+  content = jsonencode(merge(
+    jsondecode(base64decode(google_service_account_key.deployer[0].private_key)),
+    { storage_url = var.state_storage_url },
+  ))
   file_permission = "0600"
 }

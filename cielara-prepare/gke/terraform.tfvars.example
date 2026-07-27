@@ -4,6 +4,10 @@
 # GCP project Cielara will deploy into.
 project_id = "my-gcp-project"
 
+# Where this module's Terraform state is kept — must match your backend
+# config (see backend.tf). Shown in the Cielara manage tab.
+state_storage_url = "gs://my-terraform-state-bucket/cielara-prepare/gke"
+
 # Adopting resources that already exist (prepared by prepare-gke.sh, or state
 # lost)? Set both of these — see "Already prepared with the script" in README.
 # migrate    = true

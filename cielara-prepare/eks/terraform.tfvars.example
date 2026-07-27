@@ -4,5 +4,9 @@
 control_plane_principal_arn = "arn:aws:iam::123456789012:role/example-control-plane"
 external_id                 = "YOUR_CIELARA_CLIENT_ID"
 
+# Where this module's Terraform state is kept — must match your backend
+# config (see backend.tf). Shown in the Cielara manage tab.
+state_storage_url = "s3://my-terraform-state-bucket/cielara-prepare/eks/terraform.tfstate"
+
 # Already prepared with prepare-eks.sh, or lost your Terraform state?
 # migrate = true

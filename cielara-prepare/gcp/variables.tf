@@ -19,3 +19,13 @@ variable "key_output_path" {
   type        = string
   default     = "cielara-key.json"
 }
+
+variable "state_storage_url" {
+  description = "Where this module's Terraform state is kept — must match the backend you configured (e.g. gs://<bucket>/cielara-prepare/gcp, s3://<bucket>/<key>, an Azure blob URL, or a local path for local state). Recorded in the handback file so the Cielara manage tab shows where the state lives."
+  type        = string
+
+  validation {
+    condition     = length(trimspace(var.state_storage_url)) > 0
+    error_message = "Must not be empty — record where the Terraform state is kept."
+  }
+}

@@ -38,7 +38,8 @@ terraform init
 terraform apply
 ```
 
-The apply writes `cielara-creds.json` (holding the deployer role ARN) into
+The apply writes `cielara-creds.json` (holding the deployer role ARN and
+the `storage_url` where your Terraform state is kept) into
 the working directory — upload it in the Cielara deploy form to fill the
 **Role ARN** field. `terraform output -raw role_arn` prints the same value
 if you prefer to paste it.
