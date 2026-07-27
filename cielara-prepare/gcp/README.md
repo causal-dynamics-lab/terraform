@@ -30,8 +30,10 @@ terraform init
 terraform apply
 ```
 
-The apply writes `cielara-key.json` next to your working directory. Upload it
-in the Cielara deploy form. Done.
+The apply writes `cielara-key.json` next to your working directory — the
+deployer key plus a `storage_url` field recording where your Terraform state
+is kept (shown in the Cielara manage tab). Upload it in the Cielara deploy
+form. Done.
 
 ## State is a credential
 

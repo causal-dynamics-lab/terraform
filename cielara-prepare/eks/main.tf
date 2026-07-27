@@ -35,6 +35,7 @@ resource "local_sensitive_file" "creds" {
   filename        = var.creds_output_path
   file_permission = "0600"
   content = jsonencode({
-    role_arn = aws_iam_role.deployer.arn
+    role_arn    = aws_iam_role.deployer.arn
+    storage_url = var.state_storage_url
   })
 }
