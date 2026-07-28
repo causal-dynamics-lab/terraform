@@ -27,3 +27,8 @@ output "state_storage_url" {
   description = "Where this module's Terraform state is kept (as supplied via state_storage_url — shown in the Cielara manage tab)"
   value       = var.state_storage_url
 }
+
+output "infra_version_storage_account" {
+  description = "Storage account holding the infra-version marker (name is a hash of the client id — needed for the deployer read check in the README)"
+  value       = azurerm_storage_account.infra_version.name
+}
