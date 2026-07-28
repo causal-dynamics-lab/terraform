@@ -1,18 +1,13 @@
 name: tf-check
 
-# Cheap PR gate: format, validate, and run the offline (mock_provider) tests for
-# both modules. No Azure credentials needed.
+# Cheap gate: format, validate, and run the offline (mock_provider) tests for
+# every module. No cloud credentials needed. Runs unconditionally so it can be
+# a required status check on main and release.
 
 on:
   pull_request:
-    paths:
-      - "cielara-enterprise-cloud-network/**"
-      - ".github/workflows/tf-check.yml"
   push:
-    branches: [main]
-    paths:
-      - "cielara-enterprise-cloud-network/**"
-      - ".github/workflows/tf-check.yml"
+    branches: [main, release]
 
 permissions:
   contents: read
@@ -23,10 +18,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [vnet, private-endpoints]
+        module:
+          - cielara-prepare/gke
+          - cielara-prepare/gcp
+          - cielara-prepare/aks
+          - cielara-prepare/eks
+          - cielara-enterprise-cloud-network/azure/vnet
+          - cielara-enterprise-cloud-network/azure/private-endpoints
+          - cielara-enterprise-cloud-network/aws/vpc
+          - cielara-enterprise-cloud-network/aws/remote-cluster-connectivity
     defaults:
       run:
-        working-directory: cielara-enterprise-cloud-network/azure/${{ matrix.module }}
+        working-directory: ${{ matrix.module }}
     steps:
       - uses: actions/checkout@v4
 
@@ -44,4 +47,5 @@ jobs:
         run: terraform validate
 
       - name: test (offline, mock_provider)
+        if: hashFiles(format('{0}/tests/*.tftest.hcl', matrix.module)) != ''
         run: terraform test
