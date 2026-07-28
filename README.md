@@ -11,3 +11,7 @@ Customer-facing Terraform modules for [Cielara](https://cielara.ai) deployments.
 
 Every module is a standalone root module: clone the repository, enter the
 module directory, and follow its README.
+
+PRs land on `main` (the pre-release line); releases are cut from the
+`release` branch and tagged `vX.Y.Z`, `vX.Y.Z-beta.N`, or `vX.Y.Z-alpha.N` —
+see [RELEASING.md](RELEASING.md).
