@@ -23,6 +23,8 @@ jobs:
           - cielara-prepare/gcp
           - cielara-prepare/aks
           - cielara-prepare/eks
+          - cielara-prepare/gke/verify
+          - cielara-prepare/gcp/verify
           - cielara-enterprise-cloud-network/azure/vnet
           - cielara-enterprise-cloud-network/azure/private-endpoints
           - cielara-enterprise-cloud-network/aws/vpc

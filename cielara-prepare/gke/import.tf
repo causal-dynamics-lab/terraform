@@ -68,3 +68,19 @@ import {
   to       = google_service_account_iam_member.deployer_token_creator
   id       = "projects/${var.project_id}/serviceAccounts/${local.deployer_sa_email} roles/iam.serviceAccountTokenCreator serviceAccount:${local.deployer_sa_email}"
 }
+
+# The infra-version bucket postdates the script era, so its adoption is gated
+# on its own flag: migrate = true alone must keep working for pre-bucket
+# vintages (an import block fails hard when the remote object does not exist).
+
+import {
+  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  to       = google_storage_bucket.infra_version
+  id       = "${var.project_id}/cielara-infra-version-${var.project_id}"
+}
+
+import {
+  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  to       = google_storage_bucket_iam_member.deployer_infra_version_read
+  id       = "b/cielara-infra-version-${var.project_id} roles/storage.objectViewer serviceAccount:${local.deployer_sa_email}"
+}
