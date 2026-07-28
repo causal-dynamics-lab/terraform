@@ -12,6 +12,7 @@ your account.
 |---|---|---|
 | IAM role | `cielara_eks_deployer_<cielara-client-id>` | Identity the Cielara control plane deploys as |
 | Inline role policy | `cielara_eks_deployer_<cielara-client-id>` | Service-scoped grant (EKS, RDS, EFS, Secrets Manager, ACM, ELB + supporting EC2/IAM) — not AdministratorAccess; IAM management is fenced to Cielara-named resources |
+| S3 bucket + object | `cielara-infra-version-<cielara-client-id>` / `version.json` | Version marker the Cielara control plane reads (deployer role gets read via a bucket policy) |
 | Credentials file | `cielara-creds.json` | The handback — upload it in the Cielara deploy form (written on fresh prepare and adoption alike) |
 
 The role is named per tenant: each Cielara tenant onboarding into the same
@@ -44,6 +45,18 @@ the working directory — upload it in the Cielara deploy form to fill the
 **Role ARN** field. `terraform output -raw role_arn` prints the same value
 if you prefer to paste it.
 
+## Infra-version marker
+
+The apply also creates a tiny S3 bucket,
+`cielara-infra-version-<cielara-client-id>`, holding a single `version.json`
+that records which version of this module ran (`0.0.0-dev` on an untagged
+checkout). A bucket policy grants the deployer role read on just this bucket
+so the Cielara control plane can tell the prepare vintage without asking you.
+
+There is no customer-side read check here: the role's trust policy only lets
+the Cielara control plane assume it (by design), so the read is verified by
+Cielara at deploy time.
+
 ## Keep your Terraform state
 
 The state holds no secret — the role has no long-lived credential — but
@@ -69,8 +82,11 @@ terraform init
 terraform plan
 ```
 
-Check the plan: it must show only the 2 imports plus the creation of
-`cielara-creds.json` — nothing changed, nothing destroyed. Then:
+Check the plan: it must show only the 2 imports plus new creations (the
+`cielara-creds.json` handback and the infra-version bucket resources, which
+postdate the scripts) — nothing changed, nothing destroyed. If the plan
+instead fails with a bucket-already-exists error, an earlier run of this
+module created the bucket: also set `migrate_version_bucket = true`. Then:
 
 ```bash
 terraform apply
