@@ -25,10 +25,12 @@ jobs:
           - cielara-prepare/eks
           - cielara-prepare/gke/verify
           - cielara-prepare/gcp/verify
+          - cielara-ai-foundry
           - cielara-enterprise-cloud-network/azure/vnet
           - cielara-enterprise-cloud-network/azure/private-endpoints
           - cielara-enterprise-cloud-network/aws/vpc
           - cielara-enterprise-cloud-network/aws/remote-cluster-connectivity
+          - cielara-enterprise-cloud-network/gcp/vpc
     defaults:
       run:
         working-directory: ${{ matrix.module }}

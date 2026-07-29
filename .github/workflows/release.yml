@@ -90,8 +90,10 @@ jobs:
       - name: fmt + validate every module
         run: |
           for dir in cielara-prepare/gke cielara-prepare/gcp cielara-prepare/aks cielara-prepare/eks \
+            cielara-ai-foundry \
             cielara-enterprise-cloud-network/azure/vnet cielara-enterprise-cloud-network/azure/private-endpoints \
-            cielara-enterprise-cloud-network/aws/vpc cielara-enterprise-cloud-network/aws/remote-cluster-connectivity; do
+            cielara-enterprise-cloud-network/aws/vpc cielara-enterprise-cloud-network/aws/remote-cluster-connectivity \
+            cielara-enterprise-cloud-network/gcp/vpc; do
             terraform -chdir="$dir" fmt -check -recursive
             terraform -chdir="$dir" init -backend=false -input=false
             terraform -chdir="$dir" validate
