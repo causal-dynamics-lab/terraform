@@ -23,7 +23,7 @@
    and the full version: `v1.4.0` (stable), `v1.4.0-beta.2`, `v1.4.0-alpha.7`.
 
 3. The workflow validates every module, runs core's script↔module parity test
-   (checkout of `xfabric-sec/core` via the `CORE_READ_TOKEN` secret), stamps
+   (checkout of `xfabric-sec/core` via the `TERRAFORM_RELEASE_CORE_READ_TOKEN` secret), stamps
    the semver into `cielara-prepare/*/release.tf` + `VERSION`, commits, tags,
    and publishes the GitHub release (`--prerelease` for alpha/beta).
 
@@ -43,7 +43,7 @@
 
 ## One-time repo setup
 
-- `CORE_READ_TOKEN` actions secret: fine-grained PAT, contents:read on
+- `TERRAFORM_RELEASE_CORE_READ_TOKEN` actions secret: fine-grained PAT, contents:read on
   `xfabric-sec/core`. Referenced only by release.yml (workflow_dispatch), so
   fork PRs can never see it.
 - Rulesets: `main` requires PRs + green tf-check; `release` restricts

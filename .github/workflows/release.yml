@@ -55,7 +55,7 @@ jobs:
         with:
           repository: xfabric-sec/core
           ref: ${{ inputs.core_ref }}
-          token: ${{ secrets.CORE_READ_TOKEN }}
+          token: ${{ secrets.TERRAFORM_RELEASE_CORE_READ_TOKEN }}
           path: core
           fetch-depth: 1
 
