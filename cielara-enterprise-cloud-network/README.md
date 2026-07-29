@@ -24,11 +24,10 @@ creating one for you.
    cd cielara-enterprise-cloud-network
    ```
 
-2. **Choose your cloud provider** and change into that module's directory
-   (Azure and AWS are published; GCP will follow the same pattern):
+2. **Choose your cloud provider** and change into that module's directory:
 
    ```bash
-   cd <cloud>   # e.g. azure/vnet or aws/vpc
+   cd <cloud>   # e.g. azure/vnet, aws/vpc, or gcp/vpc
    ```
 
 3. **Configure and apply** — copy `terraform.tfvars.example` to
@@ -90,9 +89,7 @@ too: `terraform apply -var-file=prod.tfvars`.
 |-----|--------|
 | [`azure/`](azure/) | **Available** — Azure VNet + subnets + NAT for Cielara Enterprise |
 | [`aws/`](aws/) | **Available** — AWS VPC + subnets + NAT for Cielara Enterprise (EKS); optional [`remote-cluster-connectivity`](aws/remote-cluster-connectivity/) for private EKS API reachability |
-
-A GCP module is planned but not yet published here — it'll land as a sibling
-`gcp/` directory following the same contract.
+| [`gcp/`](gcp/vpc/) | **Available** — GCP VPC + GKE subnet (pods/services secondary ranges) + Cloud NAT for Cielara Enterprise (GKE) |
 
 The module creates the network, then exposes a single `handback` output (JSON)
 of the resource IDs the Cielara Enterprise deployment uses.
