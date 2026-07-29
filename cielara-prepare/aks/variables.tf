@@ -18,10 +18,32 @@ variable "cielara_client_id" {
   }
 }
 
+variable "location" {
+  description = "Azure region for the infra-version storage account (e.g. eastus2). Any region works — pick where the deployment will live."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9]+$", var.location))
+    error_message = "Must be an Azure region name like eastus2 (lowercase, no spaces)."
+  }
+}
+
 variable "migrate" {
   description = "Import already-existing prepare resources (created by prepare-aks.sh, or by this module when the state was lost) instead of creating them. Requires the migrate_* object ids — run discover-migrate.sh to generate them. Pair with create_secret = false to keep the existing client secret."
   type        = bool
   default     = false
+}
+
+variable "migrate_version_resources" {
+  description = "Import the already-existing infra-version resources (created by an earlier run of this module before the state was lost) instead of creating them. Set by discover-migrate.sh when it finds them."
+  type        = bool
+  default     = false
+}
+
+variable "migrate_version_ra_id" {
+  description = "Full resource id of the existing Storage Blob Data Reader assignment on the infra-version storage account (from discover-migrate.sh)"
+  type        = string
+  default     = ""
 }
 
 variable "create_secret" {

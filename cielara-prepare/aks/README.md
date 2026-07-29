@@ -13,6 +13,7 @@ back in the Cielara deploy form. No Cielara identity is added to your tenant.
 | Client secret | — | Its credential (only when `create_secret = true`) |
 | Role assignment | Contributor (subscription scope) | Create/manage the cluster, database, key vault, storage, gateway, network, identities |
 | Role assignment | Role Based Access Control Administrator (subscription scope, constrained to the exact roles the deploy assigns) | Lets the deploy create the role assignments it needs |
+| Storage account + blob | `cielarainfra<hash>` in RG `cielara-infra-version-<cielara-client-id>` / `version.json` | Version marker the Cielara control plane reads (deployer SP gets Storage Blob Data Reader on just this account) |
 | Credentials file | `cielara-creds.json` | The handback — upload it in the Cielara deploy form |
 
 The service principal is named per deployment on purpose: resetting one
@@ -41,6 +42,32 @@ The apply writes `cielara-creds.json` into the working directory —
 subscription id, tenant id, client id, client secret, plus the `storage_url`
 where your Terraform state is kept. Upload it (or paste the
 four values) in the Cielara deploy form, then treat it like a password.
+
+## Infra-version marker
+
+The apply also creates a tiny storage account (`cielarainfra<hash>`, resource
+group `cielara-infra-version-<cielara-client-id>`) with a single
+`version.json` blob recording which version of this module ran (`0.0.0-dev`
+on an untagged checkout). The deployer service principal gets **Storage Blob
+Data Reader** on just this account so the Cielara control plane can tell the
+prepare vintage without asking you.
+
+To confirm the deployer can actually read it, log in as the service principal
+(values from `cielara-creds.json`) and download the blob:
+
+```bash
+az login --service-principal -u <client_id> -p <client_secret> --tenant <tenant_id>
+az storage blob download --auth-mode login \
+  --account-name "$(terraform output -raw infra_version_storage_account)" \
+  --container-name infra-version --name version.json --file version-check.json
+cat version-check.json
+```
+
+Azure RBAC data-plane grants can take a few minutes to propagate — an
+authorization error right after the apply usually just means retry. If your
+subscription enforces the "storage accounts should prevent shared key
+access" policy, exempt this account: the Terraform provider uploads the blob
+via a listKeys-issued key (the deployer read itself uses Entra RBAC).
 
 ### Resource providers
 
@@ -79,10 +106,14 @@ terraform init
 terraform plan
 ```
 
-Check the plan: it must show only the 4 imports plus the creation of
-`cielara-creds.json` — nothing changed, nothing destroyed. If it wants to
-**replace** a role assignment, stop: the ABAC condition drifted (Azure
-replaces an assignment on any condition change, even whitespace). Then:
+Check the plan: it must show only imports plus new creations (the
+`cielara-creds.json` handback and, unless discover-migrate.sh found them from
+an earlier module run, the infra-version resources) — nothing changed,
+nothing destroyed. Two exceptions are expected: the `version.json` blob is
+re-uploaded on adoption (one replace — its content is not readable back), and
+if the plan wants to **replace** a role assignment on the *subscription*
+scope, stop: the ABAC condition drifted (Azure replaces an assignment on any
+condition change, even whitespace). Then:
 
 ```bash
 terraform apply

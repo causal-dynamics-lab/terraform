@@ -4,6 +4,9 @@
 subscription_id   = "00000000-0000-0000-0000-000000000000"
 cielara_client_id = "YOUR_CIELARA_CLIENT_ID"
 
+# Azure region for the infra-version storage account (any region works).
+location = "eastus2"
+
 # Where this module's Terraform state is kept — must match your backend
 # config (see backend.tf). Shown in the Cielara manage tab.
 state_storage_url = "https://mystorageaccount.blob.core.windows.net/tfstate/cielara-prepare-aks.tfstate"

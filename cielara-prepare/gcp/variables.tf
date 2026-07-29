@@ -8,6 +8,12 @@ variable "project_id" {
   }
 }
 
+variable "migrate_version_resources" {
+  description = "Import an already-existing infra-version bucket (created by an earlier run of this module before the state was lost) instead of creating it. Leave false unless apply fails with a bucket-already-exists conflict."
+  type        = bool
+  default     = false
+}
+
 variable "create_key" {
   description = "Create a JSON key for the deployer service account and write it to key_output_path. Set false to keep an existing key untouched."
   type        = bool

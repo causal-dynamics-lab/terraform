@@ -13,7 +13,8 @@ same resources with the same names. Use one or the other, not both.
 |---|---|---|
 | Service account | `cielara@<project>` | Identity the Cielara control plane deploys as |
 | IAM bindings | 13 project roles + 2 self-bindings | Minimal set for VM + network + Cloud SQL provisioning |
-| API enablements | 7 services | Everything the deploy's Terraform requires |
+| API enablements | 8 services | Everything the deploy's Terraform requires |
+| Bucket + object | `cielara-infra-version-<project>` / `version.json` | Version marker the Cielara control plane reads (deployer gets read on just this bucket) |
 | Key file | `cielara-key.json` | The handback — upload it in the Cielara deploy form |
 
 ## Usage
@@ -34,6 +35,27 @@ The apply writes `cielara-key.json` next to your working directory — the
 deployer key plus a `storage_url` field recording where your Terraform state
 is kept (shown in the Cielara manage tab). Upload it in the Cielara deploy
 form. Done.
+
+## Infra-version marker
+
+The apply also creates a tiny bucket, `cielara-infra-version-<project>`, with
+a single `version.json` recording which version of this module ran
+(`0.0.0-dev` on an untagged checkout). The deployer service account gets read
+access to just this bucket so the Cielara control plane can tell the prepare
+vintage without asking you.
+
+To confirm the deployer can actually read it, run the bundled verify module
+after the apply — it reads the object back authenticated with
+`cielara-key.json`, i.e. as the deployer itself:
+
+```bash
+terraform -chdir=verify init
+terraform -chdir=verify apply
+```
+
+A 403 in the first minute or two is IAM propagation — retry. Re-running after
+a lost state? A bucket-already-exists conflict means an earlier run created
+it: set `migrate_version_resources = true` to import it instead.
 
 ## State is a credential
 

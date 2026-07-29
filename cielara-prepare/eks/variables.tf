@@ -24,6 +24,12 @@ variable "migrate" {
   default     = false
 }
 
+variable "migrate_version_bucket" {
+  description = "Import an already-existing infra-version bucket (created by an earlier run of this module before the state was lost) instead of creating it. Leave false unless apply fails with a BucketAlreadyOwnedByYou/BucketAlreadyExists error."
+  type        = bool
+  default     = false
+}
+
 variable "creds_output_path" {
   description = "Where to write the credentials handback file"
   type        = string

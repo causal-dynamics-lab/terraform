@@ -17,7 +17,8 @@ same resources with the same names. Use one or the other, not both.
 | Custom role | `cielaraAppSecretManager` | Least-privilege Secret Manager access for the app |
 | Custom role | `cielaraProvisionerFilestoreSweep` | Filestore cleanup on teardown |
 | IAM bindings | — | Minimal role sets for the three accounts |
-| API enablements | 11 services | Everything the deploy's Terraform requires |
+| API enablements | 12 services | Everything the deploy's Terraform requires |
+| Bucket + object | `cielara-infra-version-<project>` / `version.json` | Version marker the Cielara control plane reads (deployer gets read on just this bucket) |
 | Key file | `cielara-key.json` | The handback — upload it in the Cielara deploy form |
 
 ## Usage
@@ -38,6 +39,25 @@ The apply writes `cielara-key.json` next to your working directory — the
 deployer key plus a `storage_url` field recording where your Terraform state
 is kept (shown in the Cielara manage tab). Upload it in the Cielara deploy
 form. Done.
+
+## Infra-version marker
+
+The apply also creates a tiny bucket, `cielara-infra-version-<project>`, with
+a single `version.json` recording which version of this module ran
+(`0.0.0-dev` on an untagged checkout). The deployer service account gets read
+access to just this bucket so the Cielara control plane can tell the prepare
+vintage without asking you.
+
+To confirm the deployer can actually read it, run the bundled verify module
+after the apply — it reads the object back authenticated with
+`cielara-key.json`, i.e. as the deployer itself:
+
+```bash
+terraform -chdir=verify init
+terraform -chdir=verify apply
+```
+
+A 403 in the first minute or two is IAM propagation — retry.
 
 ## State is a credential
 
@@ -77,6 +97,11 @@ deployer key cannot be imported (Terraform does not support it); it simply
 stays as it is — rotate it through the Cielara credential UI if you ever need
 to. After the first successful apply, set `migrate` back to false (or leave
 it — imports of already-managed resources are skipped).
+
+The infra-version bucket postdates the scripts, so plain `migrate = true`
+creates it fresh. Only add `migrate_version_resources = true` when the apply
+fails with a bucket-already-exists conflict (state lost after a run that had
+already created it).
 
 ## Rotation and teardown
 
