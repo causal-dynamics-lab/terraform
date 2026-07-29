@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored.
+
+subscription_id = "00000000-0000-0000-0000-000000000000"
+tenant_id       = "00000000-0000-0000-0000-000000000000"
+
+# Optional SP auth (leave empty for az login / ARM_* env vars)
+# azure_client_id     = ""
+# azure_client_secret = ""
+
+# environment feeds resource names + the globally-unique custom subdomain
+environment = "staging"
+# location  = "eastus2"
+
+# Override a deployment (e.g. pin a model version or bump capacity):
+# model_deployments = {
+#   "gpt-5.5"                = { model_name = "gpt-5.5", capacity = 200 }
+#   "gpt-5.3-codex"          = { model_name = "gpt-5.3-codex" }
+#   "gpt-5.4-mini"           = { model_name = "gpt-5.4-mini" }
+#   "text-embedding-3-small" = { model_name = "text-embedding-3-small", sku_name = "Standard", capacity = 120 }
+# }
