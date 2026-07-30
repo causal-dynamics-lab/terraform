@@ -17,6 +17,7 @@ or deletes it):
 | `system-subnet` `/24` | Kubernetes system node pool; `Microsoft.Storage` service endpoint |
 | `appgw-subnet` `/26` | dedicated Application Gateway subnet |
 | `postgres-subnet` `/28` | delegated to `Microsoft.DBforPostgreSQL/flexibleServers` |
+| `apiserver-subnet` `/27` | delegated to `Microsoft.ContainerService/managedClusters` — hosts the AKS API server endpoint (API Server VNet Integration), keeping node↔API-server traffic on your private network |
 | `pe-subnet` `/26` | private endpoints (network policies disabled); ~59 usable IPs; consumed by the sibling `private-endpoints` module for egress to remote private AKS clusters |
 | NAT gateway + public IP | outbound for the private node subnets, associated to system+user |
 
@@ -58,7 +59,9 @@ Copy the JSON it prints and send it to Cielara. Shape:
   "system_subnet_name": "system-subnet",
   "user_subnet_name": "user-subnet",
   "appgw_subnet_name": "appgw-subnet",
-  "postgres_subnet_name": "postgres-subnet"
+  "postgres_subnet_name": "postgres-subnet",
+  "apiserver_subnet_name": "apiserver-subnet",
+  "nat_gateway_name": "cielara-nat"
 }
 ```
 
@@ -80,4 +83,6 @@ The subnet ranges are derived automatically and must not be changed —
 Cielara Enterprise's cluster, Postgres VNet-injection, and Azure Files mounts
 depend on this exact layout. The `pe-subnet` (`10.2.8.0/26` for the default
 `/20`, ~59 usable IPs) is carved from the free `10.2.8.0/21` tail and feeds the
-sibling `private-endpoints` module.
+sibling `private-endpoints` module. The `apiserver-subnet` (`10.2.1.96/27` for
+the default `/20`) is delegated to AKS for API Server VNet Integration — Azure
+requires at least a `/28` and reserves 9+ IPs in it.
