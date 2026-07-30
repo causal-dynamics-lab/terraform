@@ -84,7 +84,8 @@ variable "vnet_cidr" {
   }
 
   validation {
-    # The subnet split (user /22, system /24, appgw /26, postgres /28) is carved
+    # The subnet split (user /22, system /24, appgw /26, postgres /28,
+    # apiserver /27, pe /26) is carved
     # at fixed offsets from the base, so the block must be /20 or larger. A
     # smaller prefix shrinks the derived subnets below Azure minimums (the
     # delegated Postgres subnet needs at least a /28) or fails the plan outright

@@ -8,19 +8,24 @@
 #   system    <cidr>/24  (256)  system node pool
 #   appgw     <cidr>/26  (64)   Application Gateway (dedicated, AGIC)
 #   postgres  <cidr>/28  (16)   PostgreSQL Flexible Server (delegated subnet)
+#   apiserver <cidr>/27  (32)   AKS API Server VNet Integration (delegated subnet)
 #   pe        <cidr>/26  (64)   Private endpoints (egress to remote private clusters)
 # For the default 10.2.0.0/20: user 10.2.4.0/22, system 10.2.0.0/24,
-# appgw 10.2.1.0/26, postgres 10.2.1.64/28, pe 10.2.8.0/26; the rest of
-# 10.2.8.0/21 is left free for growth. The pe subnet is a /26 (Azure reserves 5
-# IPs, so ~59 endpoints) — comfortably more than the handful of remote clusters
-# and PaaS endpoints expected, while still a small slice of the free /21.
+# appgw 10.2.1.0/26, postgres 10.2.1.64/28, apiserver 10.2.1.96/27,
+# pe 10.2.8.0/26; the rest of 10.2.8.0/21 is left free for growth. The pe
+# subnet is a /26 (Azure reserves 5 IPs, so ~59 endpoints) — comfortably more
+# than the handful of remote clusters and PaaS endpoints expected, while still
+# a small slice of the free /21. The apiserver subnet is a /27 — Azure's
+# minimum is /28 with at least 9 IPs reserved by AKS, so a /27 leaves scaling
+# headroom.
 #################################################
 locals {
-  user_subnet_cidr   = cidrsubnet(var.vnet_cidr, 2, 1)
-  system_subnet_cidr = cidrsubnet(var.vnet_cidr, 4, 0)
-  appgw_subnet_cidr  = cidrsubnet(var.vnet_cidr, 6, 4)
-  pg_subnet_cidr     = cidrsubnet(var.vnet_cidr, 8, 20)
-  pe_subnet_cidr     = cidrsubnet(var.vnet_cidr, 6, 32)
+  user_subnet_cidr      = cidrsubnet(var.vnet_cidr, 2, 1)
+  system_subnet_cidr    = cidrsubnet(var.vnet_cidr, 4, 0)
+  appgw_subnet_cidr     = cidrsubnet(var.vnet_cidr, 6, 4)
+  pg_subnet_cidr        = cidrsubnet(var.vnet_cidr, 8, 20)
+  apiserver_subnet_cidr = cidrsubnet(var.vnet_cidr, 7, 11)
+  pe_subnet_cidr        = cidrsubnet(var.vnet_cidr, 6, 32)
 
   # cielara-client-id is an optional ownership/audit tag — added only when a
   # client ID is provided. The network is handed back (and adopted) by name, so
@@ -103,6 +108,28 @@ resource "azurerm_subnet" "postgres" {
     name = "fs"
     service_delegation {
       name    = "Microsoft.DBforPostgreSQL/flexibleServers"
+      actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    }
+  }
+}
+
+# Delegated subnet for AKS API Server VNet Integration (Cielara data-plane
+# apiserver_vnet_integration, plan 0064). The Cielara Enterprise cluster
+# projects its API server endpoint into this subnet behind an internal load
+# balancer, so node<->apiserver traffic stays on your private network. The
+# delegation grants AKS permission to inject the API server pods + ILB; the
+# subnet can be used by nothing else (multiple AKS clusters in this VNet may
+# share it). Azure minimum /28, >=9 IPs reserved — the /27 leaves headroom.
+resource "azurerm_subnet" "apiserver" {
+  name                 = "apiserver-subnet"
+  resource_group_name  = data.azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = [local.apiserver_subnet_cidr]
+
+  delegation {
+    name = "aks"
+    service_delegation {
+      name    = "Microsoft.ContainerService/managedClusters"
       actions = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
     }
   }
