@@ -39,6 +39,16 @@ output "postgres_subnet_name" {
   value       = azurerm_subnet.postgres.name
 }
 
+output "apiserver_subnet_name" {
+  description = "AKS API Server VNet Integration delegated subnet name"
+  value       = azurerm_subnet.apiserver.name
+}
+
+output "nat_gateway_name" {
+  description = "NAT gateway name (the Cielara deployment grants its AKS control-plane identity Network Contributor on it)"
+  value       = azurerm_nat_gateway.main.name
+}
+
 # Consumed by the sibling private-endpoints module, NOT part of the Cielara
 # handback — this subnet carries egress private endpoints to remote clusters.
 output "pe_subnet_name" {
@@ -55,12 +65,14 @@ output "pe_subnet_name" {
 output "handback" {
   description = "JSON blob of network names to hand back to Cielara. Run: terraform output -raw handback"
   value = jsonencode({
-    resource_group_name  = data.azurerm_resource_group.main.name
-    location             = data.azurerm_resource_group.main.location
-    vnet_name            = azurerm_virtual_network.main.name
-    system_subnet_name   = azurerm_subnet.system.name
-    user_subnet_name     = azurerm_subnet.user.name
-    appgw_subnet_name    = azurerm_subnet.appgw.name
-    postgres_subnet_name = azurerm_subnet.postgres.name
+    resource_group_name   = data.azurerm_resource_group.main.name
+    location              = data.azurerm_resource_group.main.location
+    vnet_name             = azurerm_virtual_network.main.name
+    system_subnet_name    = azurerm_subnet.system.name
+    user_subnet_name      = azurerm_subnet.user.name
+    appgw_subnet_name     = azurerm_subnet.appgw.name
+    postgres_subnet_name  = azurerm_subnet.postgres.name
+    apiserver_subnet_name = azurerm_subnet.apiserver.name
+    nat_gateway_name      = azurerm_nat_gateway.main.name
   })
 }

@@ -40,6 +40,16 @@ run "default_cidr_derives_expected_subnets" {
     condition     = azurerm_subnet.postgres.address_prefixes[0] == "10.2.1.64/28"
     error_message = "postgres-subnet drifted from its documented range (pe-subnet must not collide)"
   }
+
+  assert {
+    condition     = azurerm_subnet.apiserver.address_prefixes[0] == "10.2.1.96/27"
+    error_message = "apiserver-subnet should derive to 10.2.1.96/27 for the default 10.2.0.0/20 (adjacent to postgres, no collision)"
+  }
+
+  assert {
+    condition     = azurerm_subnet.apiserver.delegation[0].service_delegation[0].name == "Microsoft.ContainerService/managedClusters"
+    error_message = "apiserver-subnet must be delegated to Microsoft.ContainerService/managedClusters (AKS API Server VNet Integration)"
+  }
 }
 
 # Overlap with the Kubernetes service CIDR 10.1.0.0/16 must be rejected — base
