@@ -21,15 +21,17 @@ stamped tree while the branches stay untouched.
 
 ## Cutting a release
 
-Actions → `release` → Run workflow. Pick branch **`release`**, then:
+Actions → `release` → Run workflow. Pick branch **`release`**, a channel, and
+the base version (`0.4.0` — plain `X.Y.Z`, no channel suffix). The workflow
+picks the prerelease counter itself: if `v0.4.0-alpha.11` is the highest
+existing alpha for that base, the new alpha is `v0.4.0-alpha.12` (mirroring
+core's `get-next-alpha-version.sh`). Stable tags are just `vX.Y.Z`.
 
 - **alpha** — a new cut from the release branch. `source` is any commit on
-  `release` (leave empty for the head). Version: `vX.Y.Z-alpha.N`.
+  `release` (leave empty for the head).
 - **beta** — a promotion of an existing alpha (or an earlier beta). `source`
-  is that tag, e.g. `v1.4.0-alpha.2`. Version: `vX.Y.Z-beta.N` with the same
-  `X.Y.Z` as the source tag.
+  is that tag, e.g. `v0.4.0-alpha.2`, and its `X.Y.Z` must match the base.
 - **stable** — a promotion of an existing alpha or beta tag, same rules.
-  Version: `vX.Y.Z`, matching the source tag's base.
 
 The workflow checks out the source, stamps the semver into
 `cielara-prepare/*/release.tf` + `VERSION`, runs fmt/validate on every module

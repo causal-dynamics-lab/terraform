@@ -19,7 +19,7 @@ on:
           - beta
           - stable
       version:
-        description: Full semver with v prefix (vX.Y.Z for stable, vX.Y.Z-alpha.N / vX.Y.Z-beta.N otherwise)
+        description: Base version X.Y.Z (e.g. 0.4.0) — the alpha/beta counter is picked automatically
         type: string
         required: true
       source:
@@ -44,7 +44,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ inputs.version }}
+      BASE: ${{ inputs.version }}
       CHANNEL: ${{ inputs.channel }}
       SOURCE: ${{ inputs.source }}
     steps:
@@ -67,22 +67,28 @@ jobs:
           path: core
           fetch-depth: 1
 
-      - name: Validate version against channel
+      - name: Compute the release version
         run: |
-          bash core/.github/scripts/validate-semver.sh "$VERSION" "version"
-          case "$CHANNEL" in
-            stable) pattern='^v[0-9]+\.[0-9]+\.[0-9]+$' ;;
-            alpha) pattern='^v[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$' ;;
-            beta) pattern='^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$' ;;
-          esac
-          if ! [[ "$VERSION" =~ $pattern ]]; then
-            echo "$VERSION is not a $CHANNEL version." >&2
+          base="${BASE#v}"
+          if ! [[ "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "version must be a plain X.Y.Z base (got '$BASE')." >&2
             exit 1
           fi
-          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
-            echo "Tag $VERSION already exists." >&2
-            exit 1
+          if [ "$CHANNEL" = "stable" ]; then
+            version="v$base"
+            if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
+              echo "Tag $version already exists." >&2
+              exit 1
+            fi
+          else
+            last=$(git tag -l "v$base-$CHANNEL.*" |
+              grep -E "^v$base-$CHANNEL\.[0-9]+$" |
+              awk -F. '{print $NF}' | sort -n | tail -1)
+            version="v$base-$CHANNEL.$(( ${last:-0} + 1 ))"
           fi
+          bash core/.github/scripts/validate-semver.sh "$version" "version"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "Releasing $version"
 
       - name: Resolve and check out the release source
         run: |
