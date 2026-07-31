@@ -1,5 +1,5 @@
-# Stamped by the release workflow when a release is cut from the release
-# branch; 0.0.0-dev on unreleased checkouts.
+# Stamped by the release workflow on the detached commit each release tag
+# points to; 0.0.0-dev on every branch checkout.
 locals {
   prepare_version = "0.0.0-dev"
   prepare_module  = "cielara-prepare/gke"
