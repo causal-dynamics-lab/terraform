@@ -1,14 +1,19 @@
 # Cielara AI Foundry (data plane models)
 
 Provisions the Azure AI Foundry resource the Cielara data plane needs, with the
-four model deployments the data plane resolves by name:
+model deployments the data plane resolves by name:
 
-| Deployment name          | Category  | Source of truth                                            |
-| ------------------------ | --------- | ---------------------------------------------------------- |
-| `gpt-5.5`                | reasoning | core `internal/llmprovider/categories.go` azure_openai row |
-| `gpt-5.3-codex`          | coding    | same                                                       |
-| `gpt-5.4-mini`           | mini      | same                                                       |
-| `text-embedding-3-small` | embedding | same                                                       |
+| Deployment name          | Category            | Selected by default | Source of truth                                            |
+| ------------------------ | ------------------- | ------------------- | ---------------------------------------------------------- |
+| `gpt-5.5`                | reasoning           | yes                 | core `internal/llmprovider/categories.go` azure_openai row |
+| `gpt-5.3-codex`          | coding              | yes                 | same                                                       |
+| `gpt-5.4-mini`           | mini                | yes                 | same                                                       |
+| `text-embedding-3-small` | embedding           | yes                 | same                                                       |
+| `gpt-5.6-luna`           | reasoning \| coding | no                  | core `ProviderModels` azure_openai row                     |
+
+`gpt-5.6-luna` is an *alternative* the web app offers for the reasoning and
+coding categories. It has to be deployed for an operator to be able to select
+it, but nothing points at it until someone picks it under **Admin > Models**.
 
 Deployment names are load-bearing — the data plane looks models up by
 deployment name, so keep them equal to the model names unless you also change
