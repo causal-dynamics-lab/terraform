@@ -70,6 +70,11 @@ variable "model_deployments" {
   # reasoning=gpt-5.5, coding=gpt-5.3-codex, mini=gpt-5.4-mini,
   # embedding=text-embedding-3-small. Keep key == model name unless you
   # also override the model selection in the data-plane web app.
+  #
+  # gpt-5.6-luna is deployed in addition to the defaults: core's
+  # ProviderModels offers it as an alternative for both the reasoning and
+  # the coding category, so the deployment has to exist before an operator
+  # can pick it under Admin > Models. Nothing selects it by default.
   description = "Model deployments to create, keyed by deployment name. version=null picks the model's current default version."
   type = map(object({
     model_name = string
@@ -86,6 +91,9 @@ variable "model_deployments" {
     }
     "gpt-5.4-mini" = {
       model_name = "gpt-5.4-mini"
+    }
+    "gpt-5.6-luna" = {
+      model_name = "gpt-5.6-luna"
     }
     "text-embedding-3-small" = {
       model_name = "text-embedding-3-small"
