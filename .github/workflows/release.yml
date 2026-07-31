@@ -1,9 +1,11 @@
 name: release
 
-# Cuts an alpha/beta/stable release: validates every module, runs core's
-# script<->module parity test, stamps the semver into the prepare modules,
-# commits, tags, and publishes the GitHub release. Dispatchable only from the
-# release branch — promote main into release first (see RELEASING.md).
+# Cuts an alpha/beta/stable release without ever committing to a branch:
+# validates every module, runs core's script<->module parity test, stamps the
+# semver into the prepare modules on a detached commit, tags that commit, and
+# publishes the GitHub release. Branches always carry 0.0.0-dev; only tags
+# carry a stamped tree. Alphas are cut from any commit on the release branch;
+# beta/stable are promoted from an existing alpha/beta tag (see RELEASING.md).
 
 on:
   workflow_dispatch:
@@ -17,9 +19,14 @@ on:
           - beta
           - stable
       version:
-        description: Full semver with v prefix (vX.Y.Z for stable, vX.Y.Z-alpha.N / vX.Y.Z-beta.N otherwise)
+        description: Base version X.Y.Z (e.g. 0.4.0) — the alpha/beta counter is picked automatically
         type: string
         required: true
+      source:
+        description: "alpha: commit on the release branch (empty = head). beta/stable: the alpha/beta tag being promoted."
+        type: string
+        required: false
+        default: ''
       core_ref:
         description: xfabric-sec/core ref to run the parity test against
         type: string
@@ -35,10 +42,11 @@ permissions:
 
 jobs:
   release:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     env:
-      VERSION: ${{ inputs.version }}
+      BASE: ${{ inputs.version }}
       CHANNEL: ${{ inputs.channel }}
+      SOURCE: ${{ inputs.source }}
     steps:
       - name: Refuse to release from anything but the release branch
         if: github.ref != 'refs/heads/release'
@@ -59,22 +67,63 @@ jobs:
           path: core
           fetch-depth: 1
 
-      - name: Validate version against channel
+      - name: Compute the release version
         run: |
-          bash core/.github/scripts/validate-semver.sh "$VERSION" "version"
-          case "$CHANNEL" in
-            stable) pattern='^v[0-9]+\.[0-9]+\.[0-9]+$' ;;
-            alpha) pattern='^v[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+$' ;;
-            beta) pattern='^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$' ;;
-          esac
-          if ! [[ "$VERSION" =~ $pattern ]]; then
-            echo "$VERSION is not a $CHANNEL version." >&2
+          base="${BASE#v}"
+          if ! [[ "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "version must be a plain X.Y.Z base (got '$BASE')." >&2
             exit 1
           fi
-          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
-            echo "Tag $VERSION already exists." >&2
-            exit 1
+          if [ "$CHANNEL" = "stable" ]; then
+            version="v$base"
+            if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
+              echo "Tag $version already exists." >&2
+              exit 1
+            fi
+          else
+            last=$(git tag -l "v$base-$CHANNEL.*" |
+              grep -E "^v$base-$CHANNEL\.[0-9]+$" |
+              awk -F. '{print $NF}' | sort -n | tail -1)
+            version="v$base-$CHANNEL.$(( ${last:-0} + 1 ))"
           fi
+          bash core/.github/scripts/validate-semver.sh "$version" "version"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "Releasing $version"
+
+      - name: Resolve and check out the release source
+        run: |
+          tag_pattern='^v[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta)\.[0-9]+$'
+          if [ "$CHANNEL" = "alpha" ]; then
+            src="${SOURCE:-HEAD}"
+            if ! git rev-parse -q --verify "$src^{commit}" >/dev/null; then
+              echo "source '$src' is not a commit in this repository." >&2
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$src" HEAD; then
+              echo "source '$src' is not on the release branch — alphas are cut from release-branch commits only." >&2
+              exit 1
+            fi
+          else
+            if [ -z "$SOURCE" ]; then
+              echo "$CHANNEL releases promote an existing prerelease: pass the alpha/beta tag as source." >&2
+              exit 1
+            fi
+            if ! [[ "$SOURCE" =~ $tag_pattern ]]; then
+              echo "source '$SOURCE' is not an alpha/beta tag — $CHANNEL releases are promoted from one." >&2
+              exit 1
+            fi
+            if ! git rev-parse -q --verify "refs/tags/$SOURCE" >/dev/null; then
+              echo "source tag '$SOURCE' does not exist." >&2
+              exit 1
+            fi
+            if [ "${SOURCE%%-*}" != "${VERSION%%-*}" ]; then
+              echo "version base ${VERSION%%-*} does not match source tag base ${SOURCE%%-*} — a promotion keeps X.Y.Z." >&2
+              exit 1
+            fi
+            src="refs/tags/$SOURCE"
+          fi
+          git checkout --detach "$src"
+          echo "Releasing $VERSION from $(git rev-parse HEAD) ($src)"
 
       - name: Stamp version into the prepare modules
         run: |
@@ -108,15 +157,15 @@ jobs:
         working-directory: core
         run: CIELARA_TF_MODULES_DIR="$GITHUB_WORKSPACE" go test -run TestPrepareModuleParity ./license/api/
 
-      - name: Commit, tag, push
+      - name: Commit detached, tag, push the tag only
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add cielara-prepare/gke/release.tf cielara-prepare/gcp/release.tf \
             cielara-prepare/eks/release.tf cielara-prepare/aks/release.tf VERSION
-          git diff --cached --quiet || git commit -m "release: $VERSION"
+          git commit -m "release: $VERSION"
           git tag -a "$VERSION" -m "release: $VERSION ($CHANNEL)"
-          git push origin HEAD:release "refs/tags/$VERSION"
+          git push origin "refs/tags/$VERSION"
 
       - name: Publish the GitHub release
         env:
