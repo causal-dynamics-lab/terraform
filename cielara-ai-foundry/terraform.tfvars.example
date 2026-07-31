@@ -16,5 +16,6 @@ environment = "staging"
 #   "gpt-5.5"                = { model_name = "gpt-5.5", capacity = 200 }
 #   "gpt-5.3-codex"          = { model_name = "gpt-5.3-codex" }
 #   "gpt-5.4-mini"           = { model_name = "gpt-5.4-mini" }
+#   "gpt-5.6-luna"           = { model_name = "gpt-5.6-luna" }
 #   "text-embedding-3-small" = { model_name = "text-embedding-3-small", sku_name = "Standard", capacity = 120 }
 # }
