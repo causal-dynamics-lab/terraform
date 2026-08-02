@@ -28,7 +28,7 @@ the target account (an `AdministratorAccess` identity, or one scoped to
 aws configure sso                    # one-time SSO setup
 aws sso login --profile <your-profile>
 export AWS_PROFILE=<your-profile>    # or static keys via: aws configure
-export AWS_REGION=<region>           # any region — the role is global
+export AWS_REGION=<region>           # see "Pick a region and keep it"
 ```
 
 ```bash
@@ -44,6 +44,24 @@ the `storage_url` where your Terraform state is kept) into
 the working directory — upload it in the Cielara deploy form to fill the
 **Role ARN** field. `terraform output -raw role_arn` prints the same value
 if you prefer to paste it.
+
+## Pick a region and keep it
+
+The deployer role is global, but the infra-version bucket below is regional,
+so the region this module runs in becomes part of the account's state. Set
+`region` in `terraform.tfvars` (or keep `AWS_REGION` identical on every run) —
+otherwise a later apply from a differently-pointed shell tries to create the
+bucket again in the new region and fails with:
+
+```
+Error: creating S3 Bucket (cielara-infra-version-<client-id>): api error
+AuthorizationHeaderMalformed: The authorization header is malformed;
+the region 'us-east-1' is wrong; expecting 'us-east-2'
+```
+
+The region S3 says it is "expecting" is where the bucket already lives. Set
+`region` to that value; add `migrate_version_bucket = true` if this apply also
+lost its Terraform state.
 
 ## Infra-version marker
 

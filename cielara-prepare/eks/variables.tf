@@ -18,6 +18,17 @@ variable "external_id" {
   }
 }
 
+variable "region" {
+  description = "AWS region for the infra-version bucket. Optional — leave unset to use AWS_REGION or the active profile. Once an account is prepared, keep this the same on every re-apply: the bucket is regional, so pointing a later apply at a different region fails with an S3 authorization error rather than a clear one."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.region == null || can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", var.region))
+    error_message = "Must be an AWS region id such as us-east-2."
+  }
+}
+
 variable "migrate" {
   description = "Import the already-existing role and policy (created by prepare-eks.sh, or by this module when the state was lost) instead of creating them. AWS names are deterministic — no discovery step needed."
   type        = bool
@@ -25,7 +36,7 @@ variable "migrate" {
 }
 
 variable "migrate_version_bucket" {
-  description = "Import an already-existing infra-version bucket (created by an earlier run of this module before the state was lost) instead of creating it. Leave false unless apply fails with a BucketAlreadyOwnedByYou/BucketAlreadyExists error."
+  description = "Import an already-existing infra-version bucket (created by an earlier run of this module before the state was lost) instead of creating it. Leave false unless apply fails on the bucket: BucketAlreadyOwnedByYou/BucketAlreadyExists, or an AuthorizationHeaderMalformed naming two regions — that one means the bucket exists in the region it names, so set var.region to it as well."
   type        = bool
   default     = false
 }
