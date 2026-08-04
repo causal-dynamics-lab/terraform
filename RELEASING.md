@@ -42,6 +42,20 @@ Because beta/stable re-stamp the source tag's tree, promoting never re-ships
 different code: `v1.4.0` is byte-identical to the alpha/beta it was promoted
 from except for the version value.
 
+## Lineage (revision)
+
+Alphas additionally stamp `prepare_revision` — the release-branch commit the
+tag was cut from — into every module's `release.tf`; promotions inherit it
+unchanged. The value flows into the `version.json` marker each prepare run
+writes to the customer's cloud, and into a `release.json` asset
+(`version`, `channel`, `revision`, `source_tag`) on every GitHub release.
+
+Equal revisions mean identical module trees: a customer who prepared at
+`v0.4.0-alpha.13` is already on `v0.4.0` if the stable was promoted from that
+alpha. Consumers (the Cielara control plane) compare revisions, not version
+strings. Promoting a tag that predates revision stamping fails the workflow —
+cut a fresh alpha instead.
+
 ## Notes
 
 - Tag commits live on no branch — that is by design. `git log release` never
