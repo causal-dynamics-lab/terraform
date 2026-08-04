@@ -46,6 +46,7 @@ resource "azurerm_storage_blob" "infra_version" {
 
   source_content = jsonencode({
     prepare_version = local.prepare_version
+    revision        = local.prepare_revision
     channel         = local.release_channel
     module          = local.prepare_module
     provider        = "aks"

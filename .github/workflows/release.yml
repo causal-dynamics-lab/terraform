@@ -128,7 +128,23 @@ jobs:
       - name: Stamp version into the prepare modules
         run: |
           v="${VERSION#v}"
-          sed -i "s/prepare_version = \"[^\"]*\"/prepare_version = \"$v\"/" cielara-prepare/*/release.tf
+          # Value-only replacement: terraform fmt owns the spacing around "=",
+          # so the pattern must not assume it.
+          sed -E -i "s/(prepare_version[[:space:]]*=[[:space:]]*)\"[^\"]*\"/\\1\"$v\"/" cielara-prepare/*/release.tf
+          if [ "$CHANNEL" = "alpha" ]; then
+            # HEAD is still the pre-stamp source commit on the release branch —
+            # the lineage key promotions inherit. Beta/stable re-stamp the
+            # source tag's tree, which already carries the alpha's revision.
+            rev="$(git rev-parse HEAD)"
+            sed -E -i "s/(prepare_revision[[:space:]]*=[[:space:]]*)\"[^\"]*\"/\\1\"$rev\"/" cielara-prepare/*/release.tf
+          else
+            for f in cielara-prepare/*/release.tf; do
+              if ! grep -qE 'prepare_revision[[:space:]]*=[[:space:]]*"[0-9a-f]{40}"' "$f"; then
+                echo "$f carries no stamped prepare_revision — promoting a pre-revision tag would publish a lineage-less release. Cut a fresh alpha instead." >&2
+                exit 1
+              fi
+            done
+          fi
           echo "$v" > VERSION
           git diff --stat
 
@@ -175,4 +191,16 @@ jobs:
           if [ "$CHANNEL" != "stable" ]; then
             prerelease="--prerelease"
           fi
-          gh release create "$VERSION" $prerelease --generate-notes --title "$VERSION ($CHANNEL)"
+          # Machine-readable release metadata: consumers (the control plane's
+          # tf-prepare-ref resolution) learn the target's lineage without
+          # cloning the tag. Asset only — never committed.
+          rev="$(sed -nE 's/.*prepare_revision[[:space:]]*=[[:space:]]*"([^"]*)".*/\1/p' cielara-prepare/gke/release.tf | head -1)"
+          src_tag=""
+          if [ "$CHANNEL" != "alpha" ]; then
+            src_tag="$SOURCE"
+          fi
+          jq -n --arg version "$VERSION" --arg channel "$CHANNEL" \
+            --arg revision "$rev" --arg source_tag "$src_tag" \
+            '{version: $version, channel: $channel, revision: $revision, source_tag: $source_tag}' \
+            > release.json
+          gh release create "$VERSION" $prerelease --generate-notes --title "$VERSION ($CHANNEL)" release.json

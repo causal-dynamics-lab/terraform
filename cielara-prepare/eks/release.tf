@@ -2,7 +2,10 @@
 # points to; 0.0.0-dev on every branch checkout.
 locals {
   prepare_version = "0.0.0-dev"
-  prepare_module  = "cielara-prepare/eks"
+  # Source commit on the release branch, stamped at alpha time and inherited
+  # unchanged by beta/stable promotions: equal revisions mean identical trees.
+  prepare_revision = "unknown"
+  prepare_module   = "cielara-prepare/eks"
 
   release_channel = (
     length(regexall("-alpha\\.", local.prepare_version)) > 0 ? "alpha" :
