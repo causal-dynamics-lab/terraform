@@ -20,18 +20,28 @@ supporting resources. One root module per deployment target:
    cd terraform/cielara-prepare/gke
    ```
 
-2. Download the pre-filled `terraform.tfvars` from the Cielara deploy form
+2. Sign in to the cloud you are preparing. The `gke` and `gcp` modules read
+   Application Default Credentials, so the sign-in is part of every apply:
+
+   ```bash
+   gcloud auth login
+   gcloud auth application-default login
+   ```
+
+   For `aks` use `az login`; for `eks`, configure your AWS CLI profile.
+
+3. Download the pre-filled `terraform.tfvars` from the Cielara deploy form
    and place it in the module directory (or copy
    `terraform.tfvars.example` and fill it in).
 
-3. Apply:
+4. Apply:
 
    ```bash
    terraform init
    terraform apply
    ```
 
-4. The apply produces a handback: a credentials file (`cielara-key.json` or
+5. The apply produces a handback: a credentials file (`cielara-key.json` or
    `cielara-creds.json`) written into the module directory, or for EKS a
    single `terraform output -raw role_arn`. Upload or paste it in the
    Cielara deploy form. Treat credential files like passwords and delete

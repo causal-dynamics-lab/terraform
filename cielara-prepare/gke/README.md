@@ -23,12 +23,14 @@ same resources with the same names. Use one or the other, not both.
 
 ## Usage
 
-Requires Terraform >= 1.7 and credentials for the target project with owner
-(or equivalent IAM + Service Usage admin) permissions — e.g. `gcloud auth
-application-default login`.
+Requires Terraform >= 1.7 and the gcloud CLI, signed in to the target project
+as an owner (or with equivalent IAM + Service Usage admin permissions).
 
 ```bash
 cd cielara-prepare/gke
+# Terraform reads Application Default Credentials; sign in as part of every apply.
+gcloud auth login
+gcloud auth application-default login
 # Download the pre-filled terraform.tfvars from the Cielara deploy form,
 # or copy terraform.tfvars.example and edit it.
 terraform init
