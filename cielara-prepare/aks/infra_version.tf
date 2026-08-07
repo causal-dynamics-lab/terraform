@@ -38,11 +38,10 @@ resource "azurerm_storage_container" "infra_version" {
 }
 
 resource "azurerm_storage_blob" "infra_version" {
-  name                   = "version.json"
-  storage_account_name   = azurerm_storage_account.infra_version.name
-  storage_container_name = azurerm_storage_container.infra_version.name
-  type                   = "Block"
-  content_type           = "application/json"
+  name                 = "version.json"
+  storage_container_id = azurerm_storage_container.infra_version.id
+  type                 = "Block"
+  content_type         = "application/json"
 
   source_content = jsonencode({
     prepare_version = local.prepare_version
