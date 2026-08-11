@@ -44,6 +44,30 @@ locals {
     "roles/artifactregistry.reader",
   ]
 
+  # Frozen at the script-era grant set: an import block fails hard when the
+  # binding is absent, and roles added after that era don't exist on projects
+  # adopted earlier. Creating google_project_iam_member is additive and
+  # idempotent, so newer roles never need importing — new entries go in
+  # deployer_roles/node_roles above ONLY, never here.
+  migrate_deployer_roles = [
+    "roles/container.admin",
+    "roles/compute.networkAdmin",
+    "roles/compute.loadBalancerAdmin",
+    "roles/cloudsql.admin",
+    "roles/servicenetworking.networksAdmin",
+    "roles/secretmanager.admin",
+    "roles/iam.serviceAccountAdmin",
+    "roles/iam.serviceAccountUser",
+  ]
+
+  migrate_node_roles = [
+    "roles/logging.logWriter",
+    "roles/monitoring.metricWriter",
+    "roles/monitoring.viewer",
+    "roles/stackdriver.resourceMetadata.writer",
+    "roles/artifactregistry.reader",
+  ]
+
   app_secret_manager_permissions = [
     "secretmanager.secrets.create",
     "secretmanager.secrets.get",

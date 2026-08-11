@@ -27,14 +27,17 @@ import {
   id       = "projects/${var.project_id}/serviceAccounts/${local.app_sa_email}"
 }
 
+# Role imports iterate the frozen migrate_* lists, not the live grant lists:
+# roles added to the module after the script era are created (additive,
+# idempotent), never imported — see the comment in main.tf.
 import {
-  for_each = var.migrate ? toset(local.deployer_roles) : toset([])
+  for_each = var.migrate ? toset(local.migrate_deployer_roles) : toset([])
   to       = google_project_iam_member.deployer[each.value]
   id       = "${var.project_id} ${each.value} serviceAccount:${local.deployer_sa_email}"
 }
 
 import {
-  for_each = var.migrate ? toset(local.node_roles) : toset([])
+  for_each = var.migrate ? toset(local.migrate_node_roles) : toset([])
   to       = google_project_iam_member.node[each.value]
   id       = "${var.project_id} ${each.value} serviceAccount:${local.node_sa_email}"
 }
