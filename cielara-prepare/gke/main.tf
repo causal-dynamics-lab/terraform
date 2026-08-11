@@ -28,6 +28,7 @@ locals {
     "roles/container.admin",
     "roles/compute.networkAdmin",
     "roles/compute.loadBalancerAdmin",
+    "roles/compute.securityAdmin",
     "roles/cloudsql.admin",
     "roles/servicenetworking.networksAdmin",
     "roles/secretmanager.admin",
