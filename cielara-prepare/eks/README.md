@@ -125,3 +125,26 @@ terraform destroy
 removes the role and its policy; the Cielara control plane immediately
 loses access to the account. Only do this for deployments you have already
 destroyed through Cielara.
+
+## TLDR / CLI
+
+```bash
+git clone https://github.com/causal-dynamics-lab/terraform.git
+cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
+cd cielara-prepare/eks
+
+aws sso login --profile <profile> && export AWS_PROFILE=<profile>
+export AWS_REGION=<region>
+
+# Download the pre-filled terraform.tfvars from the Cielara deploy form
+# (or copy terraform.tfvars.example and edit it).
+
+# Already prepared (script or lost state)? Add:
+#   echo 'migrate = true' >> terraform.tfvars
+
+terraform init
+terraform plan     # migrating: only imports + the marker additions, 0 destroy
+terraform apply
+terraform plan     # must print: No changes.
+# handback: cielara-creds.json -> Cielara deploy form (or `terraform output -raw role_arn`)
+```
