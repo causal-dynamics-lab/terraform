@@ -60,23 +60,8 @@ migrate_contributor_assignment_id = "${CONTRIBUTOR_ID}"
 migrate_rbac_admin_assignment_id  = "${RBAC_ADMIN_ID}"
 EOF
 
-# The infra-version resources postdate the script era, so they exist only if
-# a previous module run created them. Gate on the storage account (name is
-# derived the same way as the module's sha1 local); if it exists, adopt the
-# whole set. A missing role assignment stays empty - the module recreates it.
-RG_NAME="cielara-infra-version-${CIELARA_CLIENT_ID}"
-SA_HASH=$(printf '%s' "${CIELARA_CLIENT_ID}" | openssl dgst -sha1 | awk '{print $NF}' | tr -d '\r')
-SA_NAME="cielarainfra$(printf '%s' "${SA_HASH}" | cut -c1-12)"
-
-if az storage account show --name "${SA_NAME}" --resource-group "${RG_NAME}" >/dev/null 2>&1; then
-	SA_SCOPE="${SUB_SCOPE}/resourceGroups/${RG_NAME}/providers/Microsoft.Storage/storageAccounts/${SA_NAME}"
-	VERSION_RA_ID=$(az_tsv role assignment list --assignee "${APP_CLIENT_ID}" \
-		--role "Storage Blob Data Reader" --scope "${SA_SCOPE}" --query "[0].id")
-	{
-		echo "migrate_version_resources = true"
-		echo "migrate_version_ra_id     = \"${VERSION_RA_ID}\""
-	} >> migrate.auto.tfvars
-fi
+# The infra-version resources are not discovered here: the module's
+# check-version-marker.sh looks them up at plan time whenever migrate = true.
 
 echo "Wrote migrate.auto.tfvars:"
 cat migrate.auto.tfvars

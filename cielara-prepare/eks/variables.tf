@@ -30,13 +30,7 @@ variable "region" {
 }
 
 variable "migrate" {
-  description = "Import the already-existing role and policy (created by prepare-eks.sh, or by this module when the state was lost) instead of creating them. AWS names are deterministic — no discovery step needed."
-  type        = bool
-  default     = false
-}
-
-variable "migrate_version_bucket" {
-  description = "Import an already-existing infra-version bucket (created by an earlier run of this module before the state was lost) instead of creating it. Leave false unless apply fails on the bucket: BucketAlreadyOwnedByYou/BucketAlreadyExists, or an AuthorizationHeaderMalformed naming two regions — that one means the bucket exists in the region it names, so set var.region to it as well."
+  description = "Import the already-existing role and policy (created by prepare-eks.sh, or by this module when the state was lost) instead of creating them. AWS names are deterministic — no discovery step needed. The infra-version bucket is checked for existence and imported only when present."
   type        = bool
   default     = false
 }

@@ -3,6 +3,17 @@
 # legacy prepare scripts are frozen and never create it, so everything here
 # stays outside the parity-checked locals (apis, deployer_roles).
 
+# Only consulted when migrate = true, so fresh prepares never shell out —
+# customers running the module themselves need no gcloud CLI on that path.
+data "external" "infra_version_marker" {
+  count   = var.migrate ? 1 : 0
+  program = ["bash", "${path.module}/check-version-marker.sh", "cielara-infra-version-${var.project_id}"]
+}
+
+locals {
+  infra_version_marker_exists = try(data.external.infra_version_marker[0].result.exists, "false") == "true"
+}
+
 resource "google_project_service" "infra_version_storage" {
   project = var.project_id
   service = "storage.googleapis.com"
