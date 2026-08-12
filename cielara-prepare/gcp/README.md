@@ -56,8 +56,11 @@ terraform -chdir=verify apply
 ```
 
 A 403 in the first minute or two is IAM propagation — retry. Re-running after
-a lost state? A bucket-already-exists conflict means an earlier run created
-it: set `migrate_version_resources = true` to import it instead.
+a lost state? Set `migrate = true` (and `create_key = false` to keep the
+existing deployer key): the module checks whether the infra-version bucket
+already exists and imports it instead of creating it. The check runs `gcloud
+storage buckets describe` via `check-version-marker.sh`, so it needs the
+gcloud CLI authenticated — fresh prepares do not.
 
 ## State is a credential
 

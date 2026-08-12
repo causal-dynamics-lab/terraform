@@ -65,37 +65,57 @@ resource "azurerm_role_assignment" "deployer_infra_version_read" {
   }
 }
 
-# The version resources postdate the script era, so adoption is gated on
-# their own flags: migrate = true alone must keep working for pre-bucket
-# vintages (an import block fails hard when the remote object does not
-# exist). discover-migrate.sh sets both when it finds the storage account.
+# The version resources postdate the script era, so whether they exist
+# depends on what prepared this subscription (script vs earlier module run).
+# An import block fails hard when the remote object does not exist, so
+# adoption keys on a live existence check instead of a flag. Only consulted
+# when migrate = true, so fresh prepares never shell out. The role-assignment
+# id is random and must be looked up, not derived — the check returns it.
+
+data "external" "infra_version_marker" {
+  count = var.migrate ? 1 : 0
+  program = [
+    "bash", "${path.module}/check-version-marker.sh",
+    local.infra_version_rg_name,
+    local.infra_version_account_name,
+    var.migrate_sp_object_id,
+    var.subscription_id,
+  ]
+}
+
+locals {
+  infra_version_marker_exists = try(data.external.infra_version_marker[0].result.exists, "false") == "true"
+  infra_version_ra_id         = try(data.external.infra_version_marker[0].result.ra_id, "")
+}
 
 import {
-  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = azurerm_resource_group.infra_version
   id       = "/subscriptions/${var.subscription_id}/resourceGroups/${local.infra_version_rg_name}"
 }
 
 import {
-  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = azurerm_storage_account.infra_version
   id       = "/subscriptions/${var.subscription_id}/resourceGroups/${local.infra_version_rg_name}/providers/Microsoft.Storage/storageAccounts/${local.infra_version_account_name}"
 }
 
 import {
-  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = azurerm_storage_container.infra_version
   id       = "/subscriptions/${var.subscription_id}/resourceGroups/${local.infra_version_rg_name}/providers/Microsoft.Storage/storageAccounts/${local.infra_version_account_name}/blobServices/default/containers/infra-version"
 }
 
 import {
-  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = azurerm_storage_blob.infra_version
   id       = "https://${local.infra_version_account_name}.blob.core.windows.net/infra-version/version.json"
 }
 
+# A missing assignment with an existing account stays empty — the module
+# recreates it.
 import {
-  for_each = var.migrate_version_ra_id != "" ? toset(["this"]) : toset([])
+  for_each = local.infra_version_ra_id != "" ? toset(["this"]) : toset([])
   to       = azurerm_role_assignment.deployer_infra_version_read
-  id       = var.migrate_version_ra_id
+  id       = local.infra_version_ra_id
 }

@@ -3,6 +3,17 @@
 # legacy prepare scripts are frozen and never create it, so everything here
 # stays outside the parity-checked locals (apis, deployer_roles).
 
+# Only consulted when migrate = true, so fresh prepares never shell out —
+# customers running the module themselves need no gcloud CLI on that path.
+data "external" "infra_version_marker" {
+  count   = var.migrate ? 1 : 0
+  program = ["bash", "${path.module}/check-version-marker.sh", "cielara-infra-version-${var.project_id}"]
+}
+
+locals {
+  infra_version_marker_exists = try(data.external.infra_version_marker[0].result.exists, "false") == "true"
+}
+
 resource "google_project_service" "infra_version_storage" {
   project = var.project_id
   service = "storage.googleapis.com"
@@ -43,17 +54,17 @@ resource "google_storage_bucket_iam_member" "deployer_infra_version_read" {
   member = "serviceAccount:${google_service_account.deployer.email}"
 }
 
-# The bucket postdates the script era, so adoption is gated on its own flag —
-# an import block fails hard when the remote object does not exist.
+# An import block fails hard when the remote object does not exist, so
+# adoption keys on the live existence check above instead of a flag.
 
 import {
-  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = google_storage_bucket.infra_version
   id       = "${var.project_id}/cielara-infra-version-${var.project_id}"
 }
 
 import {
-  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = google_storage_bucket_iam_member.deployer_infra_version_read
   id       = "b/cielara-infra-version-${var.project_id} roles/storage.objectViewer serviceAccount:${local.deployer_sa_email}"
 }

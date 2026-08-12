@@ -61,13 +61,24 @@ resource "aws_s3_bucket_policy" "deployer_infra_version_read" {
   depends_on = [aws_s3_bucket_public_access_block.infra_version]
 }
 
-# The bucket postdates the script era, so adoption is gated on its own flag:
-# migrate = true alone must keep working for pre-bucket vintages (an import
-# block fails hard when the remote object does not exist). The object and
-# policy are overwrite-PUTs — only the bucket itself needs importing.
+# The bucket postdates the script era, so whether it exists depends on what
+# prepared this account (script vs earlier module run). An import block fails
+# hard when the remote object does not exist, so adoption keys on a live
+# existence check instead of a flag. The object and policy are overwrite-PUTs
+# — only the bucket itself needs importing. Only consulted when migrate =
+# true, so fresh prepares never shell out.
+
+data "external" "infra_version_marker" {
+  count   = var.migrate ? 1 : 0
+  program = ["bash", "${path.module}/check-version-marker.sh", "cielara-infra-version-${lower(var.external_id)}", coalesce(var.region, "")]
+}
+
+locals {
+  infra_version_marker_exists = try(data.external.infra_version_marker[0].result.exists, "false") == "true"
+}
 
 import {
-  for_each = var.migrate_version_bucket ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = aws_s3_bucket.infra_version
   id       = "cielara-infra-version-${lower(var.external_id)}"
 }

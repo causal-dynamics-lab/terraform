@@ -100,10 +100,12 @@ stays as it is — rotate it through the Cielara credential UI if you ever need
 to. After the first successful apply, set `migrate` back to false (or leave
 it — imports of already-managed resources are skipped).
 
-The infra-version bucket postdates the scripts, so plain `migrate = true`
-creates it fresh. Only add `migrate_version_resources = true` when the apply
-fails with a bucket-already-exists conflict (state lost after a run that had
-already created it).
+The infra-version bucket postdates the scripts. With `migrate = true` the
+module checks whether it already exists (state lost after a run that had
+already created it) and imports it when it does; otherwise it is created
+fresh. The check runs `gcloud storage buckets describe` via
+`check-version-marker.sh`, so migrations need the gcloud CLI authenticated —
+fresh prepares do not.
 
 ## Rotation and teardown
 
