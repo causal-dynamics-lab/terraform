@@ -107,9 +107,10 @@ terraform plan
 ```
 
 Check the plan: it must show only imports plus new creations (the
-`cielara-creds.json` handback and, unless discover-migrate.sh found them from
-an earlier module run, the infra-version resources) — nothing changed,
-nothing destroyed. Two exceptions are expected: the `version.json` blob is
+`cielara-creds.json` handback and, unless an earlier module run already
+created them, the infra-version resources — the module checks for those via
+`check-version-marker.sh` at plan time and imports what exists) — nothing
+changed, nothing destroyed. Two exceptions are expected: the `version.json` blob is
 re-uploaded on adoption (one replace — its content is not readable back), and
 if the plan wants to **replace** a role assignment on the *subscription*
 scope, stop: the ABAC condition drifted (Azure replaces an assignment on any

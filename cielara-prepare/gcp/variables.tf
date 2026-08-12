@@ -8,8 +8,8 @@ variable "project_id" {
   }
 }
 
-variable "migrate_version_resources" {
-  description = "Import an already-existing infra-version bucket (created by an earlier run of this module before the state was lost) instead of creating it. Leave false unless apply fails with a bucket-already-exists conflict."
+variable "migrate" {
+  description = "Re-adopt resources left by an earlier run of this module after the state was lost: the module checks whether the infra-version bucket exists and imports it instead of creating it. Pair with create_key = false to keep the existing deployer key."
   type        = bool
   default     = false
 }
