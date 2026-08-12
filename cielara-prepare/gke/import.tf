@@ -27,14 +27,17 @@ import {
   id       = "projects/${var.project_id}/serviceAccounts/${local.app_sa_email}"
 }
 
+# Role imports iterate the frozen migrate_* lists, not the live grant lists:
+# roles added to the module after the script era are created (additive,
+# idempotent), never imported — see the comment in main.tf.
 import {
-  for_each = var.migrate ? toset(local.deployer_roles) : toset([])
+  for_each = var.migrate ? toset(local.migrate_deployer_roles) : toset([])
   to       = google_project_iam_member.deployer[each.value]
   id       = "${var.project_id} ${each.value} serviceAccount:${local.deployer_sa_email}"
 }
 
 import {
-  for_each = var.migrate ? toset(local.node_roles) : toset([])
+  for_each = var.migrate ? toset(local.migrate_node_roles) : toset([])
   to       = google_project_iam_member.node[each.value]
   id       = "${var.project_id} ${each.value} serviceAccount:${local.node_sa_email}"
 }
@@ -69,18 +72,19 @@ import {
   id       = "projects/${var.project_id}/serviceAccounts/${local.deployer_sa_email} roles/iam.serviceAccountTokenCreator serviceAccount:${local.deployer_sa_email}"
 }
 
-# The infra-version bucket postdates the script era, so its adoption is gated
-# on its own flag: migrate = true alone must keep working for pre-bucket
-# vintages (an import block fails hard when the remote object does not exist).
+# The infra-version bucket postdates the script era, so whether it exists
+# depends on what created this project (script vs earlier module run). An
+# import block fails hard when the remote object does not exist, so adoption
+# keys on a live existence check (infra_version.tf) instead of a flag.
 
 import {
-  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = google_storage_bucket.infra_version
   id       = "${var.project_id}/cielara-infra-version-${var.project_id}"
 }
 
 import {
-  for_each = var.migrate_version_resources ? toset(["this"]) : toset([])
+  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
   to       = google_storage_bucket_iam_member.deployer_infra_version_read
   id       = "b/cielara-infra-version-${var.project_id} roles/storage.objectViewer serviceAccount:${local.deployer_sa_email}"
 }

@@ -56,8 +56,11 @@ terraform -chdir=verify apply
 ```
 
 A 403 in the first minute or two is IAM propagation — retry. Re-running after
-a lost state? A bucket-already-exists conflict means an earlier run created
-it: set `migrate_version_resources = true` to import it instead.
+a lost state? Set `migrate = true` (and `create_key = false` to keep the
+existing deployer key): the module checks whether the infra-version bucket
+already exists and imports it instead of creating it. The check runs `gcloud
+storage buckets describe` via `check-version-marker.sh`, so it needs the
+gcloud CLI authenticated — fresh prepares do not.
 
 ## State is a credential
 
@@ -78,3 +81,27 @@ The Terraform state contains the deployer service account's private key.
 - `terraform destroy` removes the service account and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
   shared with other workloads in the project.
+
+## TLDR / CLI
+
+```bash
+git clone https://github.com/causal-dynamics-lab/terraform.git
+cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
+cd cielara-prepare/gcp
+
+gcloud auth login
+gcloud auth application-default login
+
+# Download the pre-filled terraform.tfvars from the Cielara deploy form
+# (or copy terraform.tfvars.example and edit it).
+
+# Lost your state after an earlier run? Add:
+#   echo 'migrate = true'    >> terraform.tfvars
+#   echo 'create_key = false' >> terraform.tfvars
+
+terraform init
+terraform plan
+terraform apply
+terraform plan     # must print: No changes.
+# handback: cielara-key.json -> Cielara deploy form
+```

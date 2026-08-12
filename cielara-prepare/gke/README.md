@@ -100,10 +100,12 @@ stays as it is — rotate it through the Cielara credential UI if you ever need
 to. After the first successful apply, set `migrate` back to false (or leave
 it — imports of already-managed resources are skipped).
 
-The infra-version bucket postdates the scripts, so plain `migrate = true`
-creates it fresh. Only add `migrate_version_resources = true` when the apply
-fails with a bucket-already-exists conflict (state lost after a run that had
-already created it).
+The infra-version bucket postdates the scripts. With `migrate = true` the
+module checks whether it already exists (state lost after a run that had
+already created it) and imports it when it does; otherwise it is created
+fresh. The check runs `gcloud storage buckets describe` via
+`check-version-marker.sh`, so migrations need the gcloud CLI authenticated —
+fresh prepares do not.
 
 ## Rotation and teardown
 
@@ -113,3 +115,27 @@ already created it).
 - `terraform destroy` removes the service accounts and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
   shared with other workloads in the project.
+
+## TLDR / CLI
+
+```bash
+git clone https://github.com/causal-dynamics-lab/terraform.git
+cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
+cd cielara-prepare/gke
+
+gcloud auth login
+gcloud auth application-default login
+
+# Download the pre-filled terraform.tfvars from the Cielara deploy form
+# (or copy terraform.tfvars.example and edit it).
+
+# Already prepared (script or lost state)? Add:
+#   echo 'migrate = true'    >> terraform.tfvars
+#   echo 'create_key = false' >> terraform.tfvars
+
+terraform init
+terraform plan     # migrating: only imports + the marker additions, 0 destroy
+terraform apply
+terraform plan     # must print: No changes.
+# handback: cielara-key.json -> Cielara deploy form
+```

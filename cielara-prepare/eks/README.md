@@ -60,8 +60,8 @@ the region 'us-east-1' is wrong; expecting 'us-east-2'
 ```
 
 The region S3 says it is "expecting" is where the bucket already lives. Set
-`region` to that value; add `migrate_version_bucket = true` if this apply also
-lost its Terraform state.
+`region` to that value. With `migrate = true` the existence check reports the
+same mismatch up front, naming the region to set.
 
 ## Infra-version marker
 
@@ -102,9 +102,11 @@ terraform plan
 
 Check the plan: it must show only the 2 imports plus new creations (the
 `cielara-creds.json` handback and the infra-version bucket resources, which
-postdate the scripts) — nothing changed, nothing destroyed. If the plan
-instead fails with a bucket-already-exists error, an earlier run of this
-module created the bucket: also set `migrate_version_bucket = true`. Then:
+postdate the scripts) — nothing changed, nothing destroyed. If an earlier run
+of this module already created the infra-version bucket (lost state), the
+module detects that and imports the bucket too — the check runs `aws s3api
+head-bucket` via `check-version-marker.sh`, so migrations need the AWS CLI
+authenticated. Then:
 
 ```bash
 terraform apply
@@ -123,3 +125,26 @@ terraform destroy
 removes the role and its policy; the Cielara control plane immediately
 loses access to the account. Only do this for deployments you have already
 destroyed through Cielara.
+
+## TLDR / CLI
+
+```bash
+git clone https://github.com/causal-dynamics-lab/terraform.git
+cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
+cd cielara-prepare/eks
+
+aws sso login --profile <profile> && export AWS_PROFILE=<profile>
+export AWS_REGION=<region>
+
+# Download the pre-filled terraform.tfvars from the Cielara deploy form
+# (or copy terraform.tfvars.example and edit it).
+
+# Already prepared (script or lost state)? Add:
+#   echo 'migrate = true' >> terraform.tfvars
+
+terraform init
+terraform plan     # migrating: only imports + the marker additions, 0 destroy
+terraform apply
+terraform plan     # must print: No changes.
+# handback: cielara-creds.json -> Cielara deploy form (or `terraform output -raw role_arn`)
+```
