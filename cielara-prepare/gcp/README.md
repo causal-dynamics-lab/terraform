@@ -81,3 +81,27 @@ The Terraform state contains the deployer service account's private key.
 - `terraform destroy` removes the service account and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
   shared with other workloads in the project.
+
+## TLDR / CLI
+
+```bash
+git clone https://github.com/causal-dynamics-lab/terraform.git
+cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
+cd cielara-prepare/gcp
+
+gcloud auth login
+gcloud auth application-default login
+
+# Download the pre-filled terraform.tfvars from the Cielara deploy form
+# (or copy terraform.tfvars.example and edit it).
+
+# Lost your state after an earlier run? Add:
+#   echo 'migrate = true'    >> terraform.tfvars
+#   echo 'create_key = false' >> terraform.tfvars
+
+terraform init
+terraform plan
+terraform apply
+terraform plan     # must print: No changes.
+# handback: cielara-key.json -> Cielara deploy form
+```

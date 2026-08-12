@@ -133,3 +133,26 @@ Secret rotation stays an explicit action through the Cielara credential-edit
 UI — do not rotate by re-running this module: the control plane holds the
 current secret, and replacing it out-of-band breaks the deployment's stored
 credential.
+
+## TLDR / CLI
+
+```bash
+git clone https://github.com/causal-dynamics-lab/terraform.git
+cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
+cd cielara-prepare/aks
+
+az login && az account set --subscription <SUBSCRIPTION_ID>
+
+# Download the pre-filled terraform.tfvars from the Cielara deploy form
+# (or copy terraform.tfvars.example and edit it).
+
+# Already prepared (script or lost state)? Run the discovery step instead of
+# hand-setting anything (Windows: run through Git Bash):
+#   ./discover-migrate.sh <CIELARA_CLIENT_ID>
+
+terraform init
+terraform plan     # migrating: only imports + the marker additions, 0 destroy
+terraform apply
+terraform plan     # must print: No changes.
+# handback: cielara-creds.json -> Cielara deploy form
+```
