@@ -41,6 +41,38 @@ locals {
     "roles/monitoring.metricWriter",
   ]
 
+  # Frozen at the script-era enabled set: an import block fails hard when the
+  # API was never enabled, and APIs added after that era are off on projects
+  # adopted earlier. Enabling is idempotent, so newer APIs never need
+  # importing — new entries go in `apis` above ONLY, never here.
+  migrate_apis = [
+    "secretmanager.googleapis.com",
+    "compute.googleapis.com",
+    "logging.googleapis.com",
+    "iap.googleapis.com",
+    "sqladmin.googleapis.com",
+    "servicenetworking.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+  ]
+
+  # Frozen at the script-era grant set, for the same reason: roles added after
+  # that era aren't bound on projects adopted earlier. Creating
+  # google_project_iam_member is additive and idempotent, so newer roles never
+  # need importing — new entries go in deployer_roles above ONLY, never here.
+  migrate_deployer_roles = [
+    "roles/compute.instanceAdmin.v1",
+    "roles/compute.networkUser",
+    "roles/compute.networkAdmin",
+    "roles/compute.loadBalancerAdmin",
+    "roles/iam.serviceAccountUser",
+    "roles/compute.securityAdmin",
+    "roles/compute.storageAdmin",
+    "roles/logging.logWriter",
+    "roles/iap.tunnelResourceAccessor",
+    "roles/cloudsql.admin",
+    "roles/servicenetworking.networksAdmin",
+  ]
+
   vm_secret_manager_permissions = [
     "secretmanager.secrets.create",
     "secretmanager.secrets.get",
@@ -71,6 +103,21 @@ resource "google_project_service" "apis" {
 
   # Never switch a shared API off underneath your other workloads.
   disable_on_destroy = false
+}
+
+# `google_project_service` returns as soon as the enable operation completes,
+# but a freshly enabled API stays unusable in its own backend for a further
+# minute or so — creating the keyring straight after enabling cloudkms fails
+# with `Error 403: ... API has not been used in project <n> before`. Keyed on
+# the API list so a later addition waits again.
+resource "time_sleep" "api_propagation" {
+  create_duration = "90s"
+
+  triggers = {
+    apis = join(",", local.apis)
+  }
+
+  depends_on = [google_project_service.apis]
 }
 
 resource "google_service_account" "deployer" {
@@ -134,7 +181,7 @@ resource "google_kms_key_ring" "jwt" {
   location = var.region
   project  = var.project_id
 
-  depends_on = [google_project_service.apis]
+  depends_on = [time_sleep.api_propagation]
 }
 
 # KMS keys cannot be deleted, only their versions disabled/destroyed. Rotation

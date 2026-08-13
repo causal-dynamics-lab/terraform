@@ -3,8 +3,11 @@
 # imported (create_key = false keeps the existing one working). After apply,
 # `terraform plan` must show no changes.
 
+# API imports iterate the frozen migrate_apis list, not the live one: APIs the
+# module started enabling after the script era are off on a project adopted
+# earlier, and importing a disabled service fails the plan outright.
 import {
-  for_each = var.migrate ? toset(local.apis) : toset([])
+  for_each = var.migrate ? toset(local.migrate_apis) : toset([])
   to       = google_project_service.apis[each.value]
   id       = "${var.project_id}/${each.value}"
 }
