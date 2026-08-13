@@ -19,7 +19,7 @@ variable "cielara_client_id" {
 }
 
 variable "location" {
-  description = "Azure region for the infra-version storage account (e.g. eastus2). Any region works — pick where the deployment will live."
+  description = "Azure region for the infra-version storage account and the JWT signing vault (e.g. eastus2). A Key Vault URL carries no region, so this is a latency/residency choice and a mismatch with the deploy form cannot break signing."
   type        = string
 
   validation {

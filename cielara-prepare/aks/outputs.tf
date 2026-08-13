@@ -32,3 +32,13 @@ output "infra_version_storage_account" {
   description = "Storage account holding the infra-version marker (name is a hash of the client id — needed for the deployer read check in the README)"
   value       = azurerm_storage_account.infra_version.name
 }
+
+output "jwt_signing_key_url" {
+  description = "Versionless URL of the customer-owned JWT signing key. The Cielara control plane recomputes this deterministically from the client id; shown here for verification."
+  value       = "${azurerm_key_vault.jwt.vault_uri}keys/${azurerm_key_vault_key.jwt_signing.name}"
+}
+
+output "jwt_signer_identity_client_id" {
+  description = "Client ID of the cielara-jwt-signer managed identity the data plane's token signer federates as. The deploy terraform discovers it by its deterministic name; shown here for verification."
+  value       = azurerm_user_assigned_identity.jwt_signer.client_id
+}

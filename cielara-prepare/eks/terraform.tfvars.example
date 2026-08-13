@@ -4,10 +4,10 @@
 control_plane_principal_arn = "arn:aws:iam::123456789012:role/example-control-plane"
 external_id                 = "YOUR_CIELARA_CLIENT_ID"
 
-# Region for the infra-version bucket. Optional — AWS_REGION or the active
-# profile is used when unset — but pinning it here keeps every later apply on
-# the region the bucket was created in.
-# region = "us-east-2"
+# Region the deployment will run in — places the JWT signing key (its alias
+# ARN is regional) and the infra-version bucket. MUST match the region you
+# choose in the Cielara deploy form, and stay identical on every re-apply.
+region = "us-east-2"
 
 # Where this module's Terraform state is kept — must match your backend
 # config (see backend.tf). Shown in the Cielara manage tab.
@@ -15,3 +15,7 @@ state_storage_url = "s3://my-terraform-state-bucket/cielara-prepare/eks/terrafor
 
 # Already prepared with prepare-eks.sh, or lost your Terraform state?
 # migrate = true
+
+# Increment to rotate the JWT signing key (see the README's rotation section).
+# Earlier generations stay enabled, so a rollback is a decrement.
+# jwt_key_generation = 1
