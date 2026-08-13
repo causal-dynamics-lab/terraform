@@ -14,6 +14,8 @@ back in the Cielara deploy form. No Cielara identity is added to your tenant.
 | Role assignment | Contributor (subscription scope) | Create/manage the cluster, database, key vault, storage, gateway, network, identities |
 | Role assignment | Role Based Access Control Administrator (subscription scope, constrained to the exact roles the deploy assigns) | Lets the deploy create the role assignments it needs |
 | Storage account + blob | `cielarainfra<hash>` in RG `cielara-infra-version-<cielara-client-id>` / `version.json` | Version marker the Cielara control plane reads (deployer SP gets Storage Blob Data Reader on just this account) |
+| Key Vault + EC P-256 key | `cielarajwt<hash>` / `jwt-signing` in RG `cielara-jwt-<cielara-client-id>` | Customer-owned JWT signing key. The data plane signs with it via the `cielara-jwt-signer` managed identity (Key Vault Crypto User); the deployer SP holds no vault role and cannot grant itself one. Rotation/revocation stay yours: `az keyvault key rotate` / disable a version |
+| Managed identity | `cielara-jwt-signer` | Runtime signing identity the data plane federates as (deployer SP gets Managed Identity Contributor on just this identity, to bind each cluster's ServiceAccount) |
 | Credentials file | `cielara-creds.json` | The handback — upload it in the Cielara deploy form |
 
 The service principal is named per deployment on purpose: resetting one
@@ -126,6 +128,23 @@ the discover script), and active Cielara deployments are untouched. The
 apply still writes `cielara-creds.json` — without the `client_secret` field,
 since Azure cannot read an existing secret back — so you can paste it in the
 deploy form and only fill the secret manually.
+
+## Rotating or revoking the JWT signing key
+
+Rotation needs `az keyvault key rotate --vault-name <vault> --name jwt-signing`
+and nothing else. Key Vault keeps the earlier versions, so tokens already issued
+keep verifying until you disable the version they were signed with. The data
+plane picks the new version up within its ~5-minute key cache.
+
+Revoking a version needs it disabled:
+`az keyvault key set-attributes --vault-name <vault> --name jwt-signing --version <ver> --enabled false`.
+It leaves the published key set at the next cache refresh, and tokens signed
+with it stop verifying.
+
+Cielara can do neither: the deployer service principal holds no role on this
+vault, and its RBAC-admin grant is conditioned to a role allowlist that excludes
+Key Vault Crypto roles, so it cannot grant itself one. The vault name is in the
+`jwt_signing_key_url` output.
 
 ## Rotating the client secret
 

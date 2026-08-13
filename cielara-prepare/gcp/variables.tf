@@ -14,8 +14,18 @@ variable "migrate" {
   default     = false
 }
 
+variable "region" {
+  description = "Region the deployment runs in; places the cielara-jwt KMS keyring. Must match the region chosen in the Cielara deploy form, and cannot be changed later (keyring locations are immutable)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z]+-[a-z]+[0-9]$", var.region))
+    error_message = "Must be a GCP region id such as us-central1."
+  }
+}
+
 variable "create_key" {
-  description = "Create a JSON key for the deployer service account and write it to key_output_path. Set false to keep an existing key untouched."
+  description = "Create a JSON key for the deployer service account and write it to key_output_path. Set false to keep an existing key untouched (e.g. when adopting resources prepared by prepare-gcp.sh)."
   type        = bool
   default     = true
 }

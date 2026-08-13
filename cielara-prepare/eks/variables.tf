@@ -19,12 +19,11 @@ variable "external_id" {
 }
 
 variable "region" {
-  description = "AWS region for the infra-version bucket. Optional — leave unset to use AWS_REGION or the active profile. Once an account is prepared, keep this the same on every re-apply: the bucket is regional, so pointing a later apply at a different region fails with an S3 authorization error rather than a clear one."
+  description = "AWS region the deployment runs in; the JWT signing key alias and the infra-version bucket are both regional. Must match the region chosen in the Cielara deploy form, and stay identical on every re-apply."
   type        = string
-  default     = null
 
   validation {
-    condition     = var.region == null || can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", var.region))
+    condition     = can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", var.region))
     error_message = "Must be an AWS region id such as us-east-2."
   }
 }
@@ -33,6 +32,17 @@ variable "migrate" {
   description = "Import the already-existing role and policy (created by prepare-eks.sh, or by this module when the state was lost) instead of creating them. AWS names are deterministic — no discovery step needed. The infra-version bucket is checked for existence and imported only when present."
   type        = bool
   default     = false
+}
+
+variable "jwt_key_generation" {
+  description = "Increment to rotate the JWT signing key. One key per generation; alias/cielara-jwt-signing targets the highest and earlier ones stay enabled, so a rollback is a decrement. See the README."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.jwt_key_generation >= 1 && floor(var.jwt_key_generation) == var.jwt_key_generation
+    error_message = "Must be a whole number >= 1; increment by one to rotate."
+  }
 }
 
 variable "creds_output_path" {

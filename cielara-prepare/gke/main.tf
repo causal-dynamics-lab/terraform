@@ -2,13 +2,15 @@
 # service accounts and roles by deterministic name and does not create them.
 
 locals {
-  deployer_sa_id = "cielara"
-  node_sa_id     = "gke-node-sa"
-  app_sa_id      = "cielara-app"
+  deployer_sa_id   = "cielara"
+  node_sa_id       = "gke-node-sa"
+  app_sa_id        = "cielara-app"
+  jwt_signer_sa_id = "cielara-jwt-signer"
 
-  deployer_sa_email = "${local.deployer_sa_id}@${var.project_id}.iam.gserviceaccount.com"
-  node_sa_email     = "${local.node_sa_id}@${var.project_id}.iam.gserviceaccount.com"
-  app_sa_email      = "${local.app_sa_id}@${var.project_id}.iam.gserviceaccount.com"
+  deployer_sa_email   = "${local.deployer_sa_id}@${var.project_id}.iam.gserviceaccount.com"
+  node_sa_email       = "${local.node_sa_id}@${var.project_id}.iam.gserviceaccount.com"
+  app_sa_email        = "${local.app_sa_id}@${var.project_id}.iam.gserviceaccount.com"
+  jwt_signer_sa_email = "${local.jwt_signer_sa_id}@${var.project_id}.iam.gserviceaccount.com"
 
   apis = [
     "container.googleapis.com",
@@ -22,6 +24,7 @@ locals {
     "cloudresourcemanager.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
+    "cloudkms.googleapis.com",
   ]
 
   deployer_roles = [
@@ -84,6 +87,13 @@ locals {
     "file.instances.list",
     "file.instances.get",
     "file.instances.delete",
+  ]
+
+  app_kms_permissions = [
+    "cloudkms.cryptoKeyVersions.useToSign",
+    "cloudkms.cryptoKeyVersions.viewPublicKey",
+    "cloudkms.cryptoKeyVersions.list",
+    "cloudkms.cryptoKeys.get",
   ]
 }
 
@@ -169,6 +179,71 @@ resource "google_project_iam_member" "deployer_filestore_sweep" {
   project = var.project_id
   role    = google_project_iam_custom_role.filestore_sweep.id
   member  = "serviceAccount:${google_service_account.deployer.email}"
+}
+
+# Customer-owned Cloud KMS asymmetric key the data plane signs its JWTs with;
+# the private key never leaves this project and Cielara cannot read, rotate or
+# destroy it. Only the dedicated signer SA (assumed by admin-backend, the sole
+# token minter) gets sign + read-public-key, scoped to the key itself: the app,
+# node and deployer SAs are granted nothing here. The keyring location must
+# match the deploy form's region, which the control plane recomputes from.
+resource "google_kms_key_ring" "jwt" {
+  name     = "cielara-jwt"
+  location = var.region
+  project  = var.project_id
+
+  depends_on = [google_project_service.apis]
+}
+
+# KMS keys cannot be deleted, only their versions disabled/destroyed. Rotation
+# and revocation stay customer-run:
+#   rotate: gcloud kms keys versions create --keyring cielara-jwt --key jwt-signing --location <region>
+#   revoke: gcloud kms keys versions disable <N> --keyring cielara-jwt --key jwt-signing --location <region>
+resource "google_kms_crypto_key" "jwt_signing" {
+  name     = "jwt-signing"
+  key_ring = google_kms_key_ring.jwt.id
+  purpose  = "ASYMMETRIC_SIGN"
+
+  version_template {
+    algorithm        = "EC_SIGN_P256_SHA256"
+    protection_level = "SOFTWARE"
+  }
+}
+
+resource "google_project_iam_custom_role" "app_jwt_signer" {
+  role_id     = "cielaraAppJwtSigner"
+  title       = "Cielara App JWT Signer"
+  description = "Sign + read public key + list versions on the cielara-jwt signing key. No version create/disable/destroy."
+  permissions = local.app_kms_permissions
+  project     = var.project_id
+  stage       = "GA"
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_service_account" "jwt_signer" {
+  account_id   = local.jwt_signer_sa_id
+  display_name = "Cielara JWT Signer Identity"
+  project      = var.project_id
+
+  depends_on = [google_project_service.apis]
+}
+
+# Key-resource scope, not project scope: the signer role reaches exactly this
+# one key.
+resource "google_kms_crypto_key_iam_member" "jwt_signer" {
+  crypto_key_id = google_kms_crypto_key.jwt_signing.id
+  role          = google_project_iam_custom_role.app_jwt_signer.id
+  member        = "serviceAccount:${google_service_account.jwt_signer.email}"
+}
+
+# Best-effort Workload Identity pre-binding (the pool only becomes usable once
+# the cluster exists); the Cielara deployment terraform owns the binding for
+# real. The [cielara/cielara-jwt-signer] KSA name is load-bearing.
+resource "google_service_account_iam_member" "jwt_signer_wi" {
+  service_account_id = google_service_account.jwt_signer.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[cielara/cielara-jwt-signer]"
 }
 
 resource "google_service_account_iam_member" "deployer_token_creator" {
