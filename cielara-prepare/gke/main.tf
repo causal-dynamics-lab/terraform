@@ -47,6 +47,25 @@ locals {
     "roles/artifactregistry.reader",
   ]
 
+  # Frozen at the script-era enabled set, for the same reason as the role lists
+  # below: an import block fails hard when the API was never enabled, and APIs
+  # added after that era are off on projects adopted earlier. Enabling is
+  # idempotent, so newer APIs never need importing — new entries go in `apis`
+  # above ONLY, never here.
+  migrate_apis = [
+    "container.googleapis.com",
+    "compute.googleapis.com",
+    "file.googleapis.com",
+    "sqladmin.googleapis.com",
+    "servicenetworking.googleapis.com",
+    "secretmanager.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "cloudresourcemanager.googleapis.com",
+    "logging.googleapis.com",
+    "monitoring.googleapis.com",
+  ]
+
   # Frozen at the script-era grant set: an import block fails hard when the
   # binding is absent, and roles added after that era don't exist on projects
   # adopted earlier. Creating google_project_iam_member is additive and
@@ -105,6 +124,21 @@ resource "google_project_service" "apis" {
 
   # Never switch a shared API off underneath your other workloads.
   disable_on_destroy = false
+}
+
+# `google_project_service` returns as soon as the enable operation completes,
+# but a freshly enabled API stays unusable in its own backend for a further
+# minute or so — creating the keyring straight after enabling cloudkms fails
+# with `Error 403: ... API has not been used in project <n> before`. Keyed on
+# the API list so a later addition waits again.
+resource "time_sleep" "api_propagation" {
+  create_duration = "90s"
+
+  triggers = {
+    apis = join(",", local.apis)
+  }
+
+  depends_on = [google_project_service.apis]
 }
 
 resource "google_service_account" "deployer" {
@@ -192,7 +226,7 @@ resource "google_kms_key_ring" "jwt" {
   location = var.region
   project  = var.project_id
 
-  depends_on = [google_project_service.apis]
+  depends_on = [time_sleep.api_propagation]
 }
 
 # KMS keys cannot be deleted, only their versions disabled/destroyed. Rotation
