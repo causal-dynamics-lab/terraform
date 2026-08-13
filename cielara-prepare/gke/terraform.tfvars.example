@@ -8,6 +8,10 @@ project_id = "my-gcp-project"
 # config (see backend.tf). Shown in the Cielara manage tab.
 state_storage_url = "gs://my-terraform-state-bucket/cielara-prepare/gke"
 
+# Region the deployment will run in — places the JWT signing keyring. MUST
+# match the region you choose in the Cielara deploy form.
+region = "us-central1"
+
 # Adopting resources that already exist (prepared by prepare-gke.sh, or state
 # lost)? Set both of these — see "Already prepared with the script" in README.
 # migrate    = true

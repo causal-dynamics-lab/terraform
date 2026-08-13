@@ -8,6 +8,16 @@ variable "project_id" {
   }
 }
 
+variable "region" {
+  description = "Region the deployment runs in; places the cielara-jwt KMS keyring. Must match the region chosen in the Cielara deploy form, and cannot be changed later (keyring locations are immutable)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z]+-[a-z]+[0-9]$", var.region))
+    error_message = "Must be a GCP region id such as us-central1."
+  }
+}
+
 variable "migrate" {
   description = "Import already-existing prepare resources (created by prepare-gke.sh, or by this module when the state was lost) instead of creating them. Pair with create_key = false to keep the existing deployer key."
   type        = bool
