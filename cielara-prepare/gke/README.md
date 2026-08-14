@@ -123,11 +123,37 @@ keyring, key, signer account, and signer role to exist.
 
 ## Rotation and teardown
 
-- This module never rotates an existing key: `create_key = false` leaves your
-  current `cielara-key.json` valid. Rotate keys through the Cielara credential
-  UI, not here.
-- JWT signing key rotation is yours, not Cielara's:
-  `gcloud kms keys versions create --keyring cielara-jwt --key jwt-signing --location <region>`
+Two different keys live in this module, with different rotation stories — do not
+confuse them.
+
+- **Deployer service-account key** (`cielara-key.json`, the handback): this
+  module never rotates an existing one — `create_key = false` leaves your
+  current file valid. Rotate it through the Cielara credential UI, not here.
+- **JWT signing key** (keyring `cielara-jwt`, key `jwt-signing`): rotation
+  *and* revocation are yours, not Cielara's. Neither goes through terraform —
+  the control plane holds no permission to create, disable, or destroy a
+  version, which is the whole point of the key living in your project.
+
+  ```bash
+  # rotate: add a version; the data plane signs with the highest ENABLED one
+  gcloud kms keys versions create \
+    --keyring cielara-jwt --key jwt-signing --location <region>
+
+  # revoke: stop a version verifying (and signing, if it was the newest)
+  gcloud kms keys versions disable <N> \
+    --keyring cielara-jwt --key jwt-signing --location <region>
+  ```
+
+  Every ENABLED version is published in the data plane's JWKS, so tokens signed
+  by an older version keep verifying until you disable that version — a rotation
+  on its own logs nobody out. The data plane picks up a new version within its
+  ~5-minute key cache. A disabled version drops out of JWKS and its tokens start
+  failing inside the same window (measured on staging: JWKS dropped it in under
+  30s, tokens 401'd within a minute), so revoke is the command to reach for when
+  you believe a key is compromised.
+
+  Rollback of a rotation is `versions disable` on the newer version — the data
+  plane falls back to the highest one still enabled.
 - `terraform destroy` removes the service accounts and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
   shared with other workloads in the project. KMS keyrings and keys cannot be
