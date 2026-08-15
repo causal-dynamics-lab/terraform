@@ -3,8 +3,11 @@
 # imported (create_key = false keeps the existing one working). After apply,
 # `terraform plan` must show no changes.
 
+# API imports iterate the frozen migrate_apis list, not the live one: APIs the
+# module started enabling after the script era are off on a project adopted
+# earlier, and importing a disabled service fails the plan outright.
 import {
-  for_each = var.migrate ? toset(local.apis) : toset([])
+  for_each = var.migrate ? toset(local.migrate_apis) : toset([])
   to       = google_project_service.apis[each.value]
   id       = "${var.project_id}/${each.value}"
 }
@@ -118,12 +121,11 @@ import {
   id       = "projects/${var.project_id}/serviceAccounts/${local.jwt_signer_sa_email}"
 }
 
-# google_kms_crypto_key_iam_member.jwt_signer is deliberately NOT imported, for
-# the same reason as the Workload Identity binding below: creating an IAM member
-# is a read-modify-write, so adopting an existing binding through create is safe
-# and needs no existence probe.
-
-# google_service_account_iam_member.jwt_signer_wi is deliberately NOT imported:
-# the script's Workload Identity binding is best-effort (skipped when the WI
-# pool did not exist yet), so it may be absent. Creating an IAM member is a
-# read-modify-write — adopting an existing binding through create is safe.
+# google_kms_crypto_key_iam_member.jwt_signer is deliberately NOT imported:
+# creating an IAM member is a read-modify-write, so adopting an existing
+# binding through create is safe and needs no existence probe.
+#
+# The Workload Identity pre-binding this module once carried is gone entirely
+# (it hard-failed on projects with no WI pool); the deployment terraform owns
+# that binding. A binding left behind by an older module or script vintage is
+# harmless and stays untouched.
