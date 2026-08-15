@@ -45,6 +45,10 @@ resource "google_storage_bucket_object" "infra_version" {
     channel         = local.release_channel
     module          = local.prepare_module
     provider        = "gcp"
+    # The control plane compares this against the deploy form's region before
+    # dispatching: the KMS keyring lives here and keyring locations are
+    # immutable, so a mismatched deploy would only fail at the first JWKS call.
+    region          = var.region
   })
 }
 
