@@ -156,9 +156,16 @@ confuse them.
   plane falls back to the highest one still enabled.
 - `terraform destroy` removes the service accounts and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
-  shared with other workloads in the project. KMS keyrings and keys cannot be
-  deleted on GCP: destroy schedules the key's versions for destruction and
-  removes both from state, leaving the empty shells behind.
+  shared with other workloads in the project.
+- The JWT signing key refuses to destroy (`prevent_destroy`), and so does a
+  `region` change — the keyring location is immutable, so terraform would
+  replace the key, scheduling every version for destruction and stopping a
+  live data plane signing within minutes. Moving region for real: destroy the
+  Cielara deployment first, delete the `lifecycle` block from
+  `google_kms_crypto_key.jwt_signing` for one apply, and put it back. KMS
+  keyrings and keys cannot be deleted on GCP regardless: a destroy schedules
+  the key's versions for destruction and removes both from state, leaving the
+  empty shells behind.
 
 ## TLDR / CLI
 
