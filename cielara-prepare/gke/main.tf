@@ -271,13 +271,22 @@ resource "google_kms_crypto_key_iam_member" "jwt_signer" {
   member        = "serviceAccount:${google_service_account.jwt_signer.email}"
 }
 
-# Best-effort Workload Identity pre-binding (the pool only becomes usable once
-# the cluster exists); the Cielara deployment terraform owns the binding for
-# real. The [cielara/cielara-jwt-signer] KSA name is load-bearing.
-resource "google_service_account_iam_member" "jwt_signer_wi" {
-  service_account_id = google_service_account.jwt_signer.name
-  role               = "roles/iam.workloadIdentityUser"
-  member             = "serviceAccount:${var.project_id}.svc.id.goog[cielara/cielara-jwt-signer]"
+# No Workload Identity pre-binding here: setIamPolicy rejects a member on a
+# WI pool that does not exist yet (400 Identity Pool does not exist), and on a
+# fresh project no cluster means no pool — the pre-binding hard-failed exactly
+# the first-customer prepare it was meant to help. The Cielara deployment
+# terraform owns the binding (created after the cluster, when the pool exists).
+#
+# destroy = false is load-bearing: states written at 0.4.0-alpha.7 hold the
+# binding, and destroying it would strip the very IAM member the deployment's
+# own binding resolves to — killing JWT signing on a live tenant at its next
+# prepare re-apply. Forget it from state, never remove it from IAM.
+removed {
+  from = google_service_account_iam_member.jwt_signer_wi
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 resource "google_service_account_iam_member" "deployer_token_creator" {
