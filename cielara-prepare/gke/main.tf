@@ -242,6 +242,16 @@ resource "google_kms_crypto_key" "jwt_signing" {
     algorithm        = "EC_SIGN_P256_SHA256"
     protection_level = "SOFTWARE"
   }
+
+  # Destroying this key schedules every version for destruction, which stops a
+  # live data plane signing within minutes and, once the window lapses, loses
+  # the key material forever. The usual way to trigger that by accident is
+  # changing var.region: the keyring location is immutable, so terraform plans
+  # a replace. Refuse it here — a genuine region move means destroying the
+  # deployment first, then consciously deleting this block for one apply.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "google_project_iam_custom_role" "app_jwt_signer" {

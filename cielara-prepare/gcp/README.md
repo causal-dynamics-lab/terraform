@@ -149,6 +149,12 @@ confuse them.
 - `terraform destroy` removes the service account and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
   shared with other workloads in the project.
+- The JWT signing key refuses to destroy (`prevent_destroy`), and so does a
+  `region` change — the keyring location is immutable, so terraform would
+  replace the key, scheduling every version for destruction and stopping a
+  live data plane signing within minutes. Moving region for real: destroy the
+  Cielara deployment first, delete the `lifecycle` block from
+  `google_kms_crypto_key.jwt_signing` for one apply, and put it back.
 
 ## TLDR / CLI
 
