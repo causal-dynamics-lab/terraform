@@ -16,7 +16,7 @@ same resources with the same names. Use one or the other, not both.
 | Service account | `cielara-app@<project>` | Identity the Cielara app assumes via Workload Identity |
 | Service account | `cielara-jwt-signer@<project>` | Identity admin-backend signs JWTs as (Workload Identity) |
 | Custom role | `cielaraAppSecretManager` | Least-privilege Secret Manager access for the app |
-| Custom role | `cielaraProvisionerFilestoreSweep` | Filestore cleanup on teardown |
+| Custom role | `cielaraProvisionerFilestoreSweep` | Filestore and PD disk cleanup on teardown |
 | Custom role | `cielaraAppJwtSigner` | Sign + read-public-key on the JWT key, nothing else |
 | KMS keyring + key | `cielara-jwt/jwt-signing` | Customer-owned JWT signing key (EC P-256) — Cielara never holds the private key |
 | IAM bindings | — | Minimal role sets for the accounts; signer role bound at key scope only |
