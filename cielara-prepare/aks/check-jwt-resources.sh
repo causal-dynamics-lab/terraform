@@ -31,6 +31,9 @@ DEPLOYER_MI_ID=""
 if [ -n "${RG_ID}" ]; then
 	VAULT_ID=$(az_tsv keyvault show --name "${VAULT}" --resource-group "${RG}" --query id)
 	IDENTITY_ID=$(az_tsv identity show --name "${IDENTITY}" --resource-group "${RG}" --query id)
+	# The MSI resource provider returns "resourcegroups" lowercased; the azurerm
+	# UserAssignedIdentity id parser rejects anything but "resourceGroups".
+	IDENTITY_ID=${IDENTITY_ID//\/resourcegroups\//\/resourceGroups\/}
 	IDENTITY_PRINCIPAL=$(az_tsv identity show --name "${IDENTITY}" --resource-group "${RG}" --query principalId)
 fi
 
