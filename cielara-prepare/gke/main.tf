@@ -106,6 +106,8 @@ locals {
     "file.instances.list",
     "file.instances.get",
     "file.instances.delete",
+    "compute.disks.list",
+    "compute.disks.delete",
   ]
 
   app_kms_permissions = [
@@ -198,10 +200,13 @@ resource "google_project_iam_member" "app_secret_manager" {
   member  = "serviceAccount:${google_service_account.app.email}"
 }
 
+# The role id stays Filestore-flavoured though the role now also sweeps PD
+# disks: changing it mints a second custom role and forces every prepared
+# project through a new-role import.
 resource "google_project_iam_custom_role" "filestore_sweep" {
   role_id     = "cielaraProvisionerFilestoreSweep"
-  title       = "Cielara Provisioner Filestore Sweep"
-  description = "Least-privilege Filestore list/get/delete for the provisioner SA's post-destroy orphan sweep. No create/update."
+  title       = "Cielara Provisioner CSI Orphan Sweep"
+  description = "Least-privilege Filestore and persistent-disk list/get/delete for the provisioner SA's post-destroy orphan sweep. No create/update."
   permissions = local.filestore_sweep_permissions
   project     = var.project_id
   stage       = "GA"
