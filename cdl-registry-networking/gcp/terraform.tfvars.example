@@ -1,0 +1,28 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is git-ignored.
+
+# --- GCP ------------------------------------------------------------------
+# The project Cielara Enterprise deploys into. Auth via Application Default
+# Credentials (gcloud auth application-default login) by default; set
+# credentials_file to use a service-account key instead.
+project_id = "my-gcp-project"
+region     = "us-central1"
+# credentials_file = "/path/to/key.json"
+
+# --- Ownership / naming -----------------------------------------------------
+# Optional: labels the network with your Cielara client ID for identification.
+# Leave unset if you don't have one yet.
+# cielara_client_id = "<client id Cielara gave you>"
+# name_prefix       = "cielara"
+
+# --- Network sizing ----------------------------------------------------------
+# Defaults match the Cielara deployment. The pods range must stay large — GKE
+# reserves a /24 per node from it. Keep every range disjoint from
+# 172.16.0.0/28 (GKE master) and 10.96.0.0/16 (Cloud SQL PSA default).
+# gke_subnet_cidr = "10.10.0.0/20"
+# pods_cidr       = "10.11.0.0/16"
+# services_cidr   = "10.12.0.0/20"
+
+# --- Secondary range names -----------------------------------------------------
+# Handed back by name; the defaults are the convention.
+# pods_range_name     = "pods"
+# services_range_name = "services"

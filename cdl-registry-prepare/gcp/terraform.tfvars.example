@@ -1,0 +1,21 @@
+# Copy to terraform.tfvars (or download the pre-filled one from the Cielara
+# deploy form) and fill in your values.
+
+# GCP project Cielara will deploy into.
+project_id = "my-gcp-project"
+
+# Where this module's Terraform state is kept — must match your backend
+# config (see backend.tf). Shown in the Cielara manage tab.
+state_storage_url = "gs://my-terraform-state-bucket/cielara-prepare/gcp"
+
+# Region the deployment will run in — places the JWT signing keyring. MUST
+# match the region you choose in the Cielara deploy form.
+region = "us-central1"
+
+# Adopting resources that already exist (prepared by prepare-gcp.sh, or state
+# lost)? Set both of these.
+# migrate    = true
+# create_key = false
+
+# Where the deployer key file is written on apply.
+# key_output_path = "cielara-key.json"

@@ -1,0 +1,18 @@
+# The Cielara deploy form serves a pre-filled copy of this file
+# (Deployments -> AKS -> Download terraform.tfvars).
+
+subscription_id   = "00000000-0000-0000-0000-000000000000"
+cielara_client_id = "YOUR_CIELARA_CLIENT_ID"
+
+# Azure region for the infra-version storage account (any region works).
+location = "eastus2"
+
+# Where this module's Terraform state is kept — must match your backend
+# config (see backend.tf). Shown in the Cielara manage tab.
+state_storage_url = "https://mystorageaccount.blob.core.windows.net/tfstate/cielara-prepare-aks.tfstate"
+
+# Adopting a subscription prepared earlier (script or lost state)?
+# Run ./discover-migrate.sh <cielara_client_id> instead of setting these by
+# hand - it writes migrate.auto.tfvars with the object ids.
+# migrate       = true
+# create_secret = false
