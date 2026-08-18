@@ -1,5 +1,11 @@
 # Cielara Enterprise Cloud Network - AWS Remote Cluster Connectivity
 
+> Published as a submodule of
+> [`causal-dynamics-lab/cielara-network/aws`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-network/aws/latest)
+> — consume it with the `//modules/remote-cluster-connectivity` source suffix
+> shown below. Development, history, and issues:
+> [causal-dynamics-lab/terraform](https://github.com/causal-dynamics-lab/terraform).
+
 Creates VPC peering and private DNS in the Cielara VPC so the Kubernetes cluster
 running there can reach **remote private EKS clusters** over private networking
 instead of the public internet. Runs **after** the `vpc` module (it adopts that
@@ -26,10 +32,11 @@ It creates **no** VPC, subnets, or remote clusters — those exist already.
 
 ## Prerequisites
 
-- The `vpc` module applied; copy its `vpc_id`, `vpc_cidr`, `private_route_table_ids`,
-  and `region` outputs into `terraform.tfvars`.
-- For each remote cluster: its name, VPC ID, VPC CIDR, and API endpoint hostname
-  (see `terraform.tfvars.example` for the `aws` commands).
+- The parent network module applied; wire its `vpc_id`, `vpc_cidr`,
+  `private_route_table_ids`, and `region` outputs straight into this one
+  (example below).
+- For each remote cluster: its name, VPC ID, VPC CIDR, and API endpoint
+  hostname (`aws eks describe-cluster --name <name>` surfaces all four).
 - **Non-overlapping CIDRs** between the Cielara VPC and each remote VPC (the
   default Cielara `10.2.0.0/20` collides if the remote VPC uses the same range).
 - IAM able to create peering connections, routes, and Route 53 private zones in
@@ -39,9 +46,35 @@ It creates **no** VPC, subnets, or remote clusters — those exist already.
 
 ## Run
 
+```hcl
+module "cielara_network" {
+  source  = "causal-dynamics-lab/cielara-network/aws"
+  version = "X.Y.Z"
+
+  region = "us-east-1"
+}
+
+module "remote_cluster_connectivity" {
+  source  = "causal-dynamics-lab/cielara-network/aws//modules/remote-cluster-connectivity"
+  version = "X.Y.Z" # same release as the parent
+
+  region                  = module.cielara_network.region
+  vpc_id                  = module.cielara_network.vpc_id
+  vpc_cidr                = module.cielara_network.vpc_cidr
+  private_route_table_ids = module.cielara_network.private_route_table_ids
+
+  remote_clusters = {
+    prod-east = {
+      cluster_name    = "prod-east"
+      remote_vpc_id   = "vpc-0123456789abcdef0"
+      remote_vpc_cidr = "10.30.0.0/16"
+      api_endpoint    = "https://ABCDEF.gr7.us-east-1.eks.amazonaws.com"
+    }
+  }
+}
+```
+
 ```bash
-cd aws/remote-cluster-connectivity
-cp terraform.tfvars.example terraform.tfvars   # then edit it
 terraform init
 terraform plan
 terraform apply
@@ -75,7 +108,7 @@ For **cross-account** (Phase 2), set `discover_endpoint_ips = false` and supply
 
 ## Adding more clusters
 
-Append another entry to `remote_clusters` in `terraform.tfvars` and re-apply.
+Append another entry to `remote_clusters` in the module block and re-apply.
 The map key is the `for_each` key — keep existing keys stable (renaming a key
 destroys and recreates that peering connection and DNS zone).
 

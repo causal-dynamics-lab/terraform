@@ -1,5 +1,11 @@
 # Cielara Enterprise Cloud Network - Azure
 
+> Published to the Terraform Registry as
+> [`causal-dynamics-lab/cielara-network/azurerm`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-network/azurerm/latest)
+> via the read-only mirror repo `terraform-azurerm-cielara-network`.
+> Development, history, and issues:
+> [causal-dynamics-lab/terraform](https://github.com/causal-dynamics-lab/terraform).
+
 Provisions the Azure networking Cielara Enterprise needs, in **your**
 subscription with **your** credentials. After apply you hand a small JSON blob
 of resource IDs back to Cielara; the Cielara Enterprise deployment then runs
@@ -18,7 +24,7 @@ or deletes it):
 | `appgw-subnet` `/26` | dedicated Application Gateway subnet |
 | `postgres-subnet` `/28` | delegated to `Microsoft.DBforPostgreSQL/flexibleServers` |
 | `apiserver-subnet` `/27` | delegated to `Microsoft.ContainerService/managedClusters` — hosts the AKS API server endpoint (API Server VNet Integration), keeping node↔API-server traffic on your private network |
-| `pe-subnet` `/26` | private endpoints (network policies disabled); ~59 usable IPs; consumed by the sibling `private-endpoints` module for egress to remote private AKS clusters |
+| `pe-subnet` `/26` | private endpoints (network policies disabled); ~59 usable IPs; consumed by the bundled `private-endpoints` submodule for egress to remote private AKS clusters |
 | NAT gateway + public IP | outbound for the private node subnets, associated to system+user |
 
 It does **not** create the Kubernetes cluster, Postgres server, Key Vault,
@@ -30,14 +36,32 @@ handback as part of your Cielara Enterprise deployment.
 - An existing resource group; note its **name** and **region**.
 - `Contributor` (or finer) on that RG so Terraform can create network resources.
 - Terraform `>= 1.5`, the `azurerm` provider (`~> 4.77`, fetched by `init`).
-- Either a service principal (`subscription_id`/`tenant_id`/`azure_client_id`/
-  `azure_client_secret`) **or** `az login`.
+- Auth comes from your root module's `provider "azurerm"` block: `az login`,
+  `ARM_*` environment variables, or an explicit service principal — any
+  azurerm auth method works.
 
 ## Run
 
+```hcl
+provider "azurerm" {
+  features {}
+  subscription_id = "<subscription id>"
+}
+
+module "cielara_network" {
+  source  = "causal-dynamics-lab/cielara-network/azurerm"
+  version = "X.Y.Z" # pin an exact released version
+
+  resource_group_name = "my-cielara-rg"
+  location            = "eastus2" # must match the resource group's region
+}
+
+output "handback" {
+  value = module.cielara_network.handback
+}
+```
+
 ```bash
-cd azure/vnet
-cp terraform.tfvars.example terraform.tfvars   # then edit it
 terraform init
 terraform plan
 terraform apply

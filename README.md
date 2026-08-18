@@ -10,6 +10,13 @@ Customer-facing Terraform modules for [Cielara](https://cielara.ai) deployments.
   private endpoints, AWS VPC + remote-cluster connectivity, GCP VPC).
 - [`cielara-ai-foundry/`](cielara-ai-foundry/) — Azure AI Foundry account +
   model deployments for the Cielara data plane.
+- [`cdl-registry-prepare/`](cdl-registry-prepare/) and
+  [`cdl-registry-networking/`](cdl-registry-networking/) — Terraform Registry
+  editions of the prepare and network modules. Each subdirectory is the exact
+  content of its read-only mirror repo (`terraform-<provider>-cielara-*`), from
+  which the registry publishes; the release workflow fans them out on every
+  tag. No provider blocks, consumed as child modules — never commit to a
+  mirror by hand.
 
 Every module is a standalone root module: clone the repository, enter the
 module directory, and follow its README.

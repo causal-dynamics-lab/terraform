@@ -317,7 +317,8 @@ resource "google_service_account_key" "deployer" {
 }
 
 # Upload this file in the Cielara deploy form. The key also lives in the
-# Terraform state — protect the state like a credential (see backend.tf).
+# Terraform state — protect the state like a credential (see the README's
+# Remote state section).
 # storage_url is a Cielara addition on top of the Google key document; GCP
 # auth ignores unknown JSON fields.
 resource "local_sensitive_file" "key" {

@@ -1,5 +1,5 @@
 variable "control_plane_principal_arn" {
-  description = "IAM principal the Cielara control plane assumes this role from (pre-filled in the terraform.tfvars served by the deploy form)"
+  description = "IAM principal the Cielara control plane assumes this role from (pre-filled in the main.tf served by the deploy form)"
   type        = string
 
   validation {
@@ -9,7 +9,7 @@ variable "control_plane_principal_arn" {
 }
 
 variable "external_id" {
-  description = "Your Cielara client id (pre-filled in the terraform.tfvars served by the deploy form). Used as the STS External ID and as the role-name suffix, so each tenant gets its own role."
+  description = "Your Cielara client id (pre-filled in the main.tf served by the deploy form). Used as the STS External ID and as the role-name suffix, so each tenant gets its own role."
   type        = string
 
   validation {

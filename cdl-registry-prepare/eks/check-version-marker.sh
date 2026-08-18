@@ -22,7 +22,7 @@ elif grep -q "404" <<<"${OUT}"; then
 elif grep -q "301" <<<"${OUT}"; then
 	ACTUAL=$(aws s3api get-bucket-location --bucket "${BUCKET}" \
 		--query LocationConstraint --output text 2>/dev/null | sed 's/^None$/us-east-1/' || true)
-	echo "Error: s3://${BUCKET} exists in region '${ACTUAL:-unknown}' - set region = \"${ACTUAL:-<bucket-region>}\" in terraform.tfvars." >&2
+	echo "Error: s3://${BUCKET} exists in region '${ACTUAL:-unknown}' - set region = \"${ACTUAL:-<bucket-region>}\" on the module call." >&2
 	exit 1
 else
 	echo "Error checking s3://${BUCKET}: ${OUT}" >&2

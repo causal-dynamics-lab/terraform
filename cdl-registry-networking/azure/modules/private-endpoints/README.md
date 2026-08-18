@@ -1,5 +1,11 @@
 # Cielara Enterprise Cloud Network - Azure Private Endpoints
 
+> Published as a submodule of
+> [`causal-dynamics-lab/cielara-network/azurerm`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-network/azurerm/latest)
+> — consume it with the `//modules/private-endpoints` source suffix shown
+> below. Development, history, and issues:
+> [causal-dynamics-lab/terraform](https://github.com/causal-dynamics-lab/terraform).
+
 Creates private endpoints in the Cielara VNet so the Kubernetes cluster running
 there can reach **remote private AKS clusters** over Azure Private Link instead
 of the public internet. Runs **after** the `vnet` module (it adopts that VNet,
@@ -25,18 +31,49 @@ It creates **no** VNet, subnet, or the remote clusters — those exist already.
 
 ## Prerequisites
 
-- The `vnet` module applied; copy its `resource_group_name`, `vnet_name`, and
-  `pe_subnet_name` outputs into `terraform.tfvars`.
-- For each remote cluster: its managed-cluster **resource ID** and **private API
-  FQDN** (see `terraform.tfvars.example` for the `az` commands).
+- The parent network module applied; wire its `resource_group_name`,
+  `vnet_name`, and `pe_subnet_name` outputs straight into this one (example
+  below).
+- For each remote cluster: its managed-cluster **resource ID** and **private
+  API FQDN** (`az aks show -n <name> -g <rg> --query "{id:id, fqdn:privateFqdn}"`
+  surfaces both).
 - `Contributor` on the resource group; for auto-approval, approval rights on the
   remote cluster (same tenant/owner). Terraform `>= 1.5`, `azurerm ~> 4.77`.
 
 ## Run
 
+```hcl
+provider "azurerm" {
+  features {}
+  subscription_id = "<subscription id>"
+}
+
+module "cielara_network" {
+  source  = "causal-dynamics-lab/cielara-network/azurerm"
+  version = "X.Y.Z"
+
+  resource_group_name = "my-cielara-rg"
+  location            = "eastus2"
+}
+
+module "private_endpoints" {
+  source  = "causal-dynamics-lab/cielara-network/azurerm//modules/private-endpoints"
+  version = "X.Y.Z" # same release as the parent
+
+  resource_group_name = module.cielara_network.resource_group_name
+  vnet_name           = module.cielara_network.vnet_name
+  pe_subnet_name      = module.cielara_network.pe_subnet_name
+
+  remote_clusters = {
+    prod-east = {
+      cluster_id = "/subscriptions/.../managedClusters/prod-east"
+      fqdn       = "prod-east.1234abcd.privatelink.eastus2.azmk8s.io"
+    }
+  }
+}
+```
+
 ```bash
-cd azure/private-endpoints
-cp terraform.tfvars.example terraform.tfvars   # then edit it
 terraform init
 terraform plan
 terraform apply
@@ -69,6 +106,6 @@ Once approved, the remote API FQDN resolving from the VNet to the endpoint IP
 
 ## Adding more clusters
 
-Append another entry to `remote_clusters` in `terraform.tfvars` and re-apply.
+Append another entry to `remote_clusters` in the module block and re-apply.
 The map key is the `for_each` key — keep existing keys stable (renaming a key
 destroys and recreates that endpoint).

@@ -98,7 +98,7 @@ resource "azurerm_role_assignment" "rbac_admin" {
 # Upload this file in the Cielara deploy form. With create_secret = false
 # the secret is omitted — enter your existing one in the form manually. The
 # secret also lives in the Terraform state — protect the state like a
-# credential (see backend.tf).
+# credential (see the README's Remote state section).
 resource "local_sensitive_file" "creds" {
   filename        = var.creds_output_path
   file_permission = "0600"

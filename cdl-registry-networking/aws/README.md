@@ -1,5 +1,11 @@
 # Cielara Enterprise Cloud Network - AWS
 
+> Published to the Terraform Registry as
+> [`causal-dynamics-lab/cielara-network/aws`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-network/aws/latest)
+> via the read-only mirror repo `terraform-aws-cielara-network`.
+> Development, history, and issues:
+> [causal-dynamics-lab/terraform](https://github.com/causal-dynamics-lab/terraform).
+
 Provisions the AWS networking Cielara Enterprise needs, in **your** account
 with **your** credentials. After apply you hand a small JSON blob of resource
 IDs back to Cielara; the Cielara Enterprise deployment then runs *into* this
@@ -19,9 +25,9 @@ VPC instead of creating its own.
 It does **not** create the EKS cluster, RDS instance, EFS filesystem, load
 balancers, security groups, or VPC peering to remote clusters — Cielara creates
 those after handback as part of your Cielara Enterprise deployment. For reaching
-**remote private EKS clusters** over peering, apply the sibling
-[`remote-cluster-connectivity`](../remote-cluster-connectivity/) module after this
-one.
+**remote private EKS clusters** over peering, apply the bundled
+[`remote-cluster-connectivity`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-network/aws/latest/submodules/remote-cluster-connectivity)
+submodule after this one.
 
 ## Prerequisites
 
@@ -32,9 +38,24 @@ one.
 
 ## Run
 
+```hcl
+provider "aws" {
+  region = "us-east-1"
+}
+
+module "cielara_network" {
+  source  = "causal-dynamics-lab/cielara-network/aws"
+  version = "X.Y.Z" # pin an exact released version
+
+  region = "us-east-1" # must match the provider block
+}
+
+output "handback" {
+  value = module.cielara_network.handback
+}
+```
+
 ```bash
-cd aws/vpc
-cp terraform.tfvars.example terraform.tfvars   # then edit it
 terraform init
 terraform plan
 terraform apply
@@ -57,8 +78,9 @@ Copy the JSON it prints and send it to Cielara. Shape:
 }
 ```
 
-Additional outputs for the sibling `remote-cluster-connectivity` module:
-`vpc_cidr`, `private_route_table_ids`.
+Additional outputs for the `remote-cluster-connectivity` submodule:
+`vpc_cidr`, `private_route_table_ids` — wire them straight from the module
+call (see the submodule's README).
 
 ## Bringing a VPC you already have
 

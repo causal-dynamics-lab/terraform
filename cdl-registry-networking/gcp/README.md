@@ -1,5 +1,11 @@
 # Cielara Enterprise Cloud Network - GCP
 
+> Published to the Terraform Registry as
+> [`causal-dynamics-lab/cielara-network/google`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-network/google/latest)
+> via the read-only mirror repo `terraform-google-cielara-network`.
+> Development, history, and issues:
+> [causal-dynamics-lab/terraform](https://github.com/causal-dynamics-lab/terraform).
+
 Provisions the GCP networking Cielara Enterprise needs, in **your** project
 with **your** credentials. After apply you hand a small JSON blob of resource
 handles back to Cielara; the Cielara Enterprise deployment then runs *into*
@@ -28,14 +34,32 @@ form if it collides with your address space).
   project and region** you use on the Cielara deploy form.
 - Credentials able to create network resources (`roles/compute.networkAdmin`
   or equivalent) via Application Default Credentials (`gcloud auth
-  application-default login`) or a service-account key (`credentials_file`).
+  application-default login`) or any other auth method your root module's
+  `provider "google"` block configures.
 - Terraform `>= 1.5`, the `google` provider (`~> 5.0`, fetched by `init`).
 
 ## Run
 
+```hcl
+provider "google" {
+  project = "my-gcp-project"
+  region  = "us-central1"
+}
+
+module "cielara_network" {
+  source  = "causal-dynamics-lab/cielara-network/google"
+  version = "X.Y.Z" # pin an exact released version
+
+  project_id = "my-gcp-project"
+  region     = "us-central1" # the region you will pick on the Cielara deploy form
+}
+
+output "handback" {
+  value = module.cielara_network.handback
+}
+```
+
 ```bash
-cd gcp/vpc
-cp terraform.tfvars.example terraform.tfvars   # then edit it
 terraform init
 terraform plan
 terraform apply

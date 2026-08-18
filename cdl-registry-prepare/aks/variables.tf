@@ -9,7 +9,7 @@ variable "subscription_id" {
 }
 
 variable "cielara_client_id" {
-  description = "Your Cielara client id (pre-filled in the terraform.tfvars served by the deploy form). Names the service principal so each deployment gets its own credential."
+  description = "Your Cielara client id (pre-filled in the main.tf served by the deploy form). Names the service principal so each deployment gets its own credential."
   type        = string
 
   validation {

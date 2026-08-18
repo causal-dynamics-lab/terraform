@@ -1,5 +1,11 @@
 # Cielara EKS prepare
 
+> Published to the Terraform Registry as
+> [`causal-dynamics-lab/cielara-prepare-eks/aws`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-prepare-eks/aws/latest)
+> via the read-only mirror repo `terraform-aws-cielara-prepare-eks`.
+> Development, history, and issues:
+> [causal-dynamics-lab/terraform](https://github.com/causal-dynamics-lab/terraform).
+
 Prepares your AWS account for a Cielara EKS deployment. Creates one
 cross-account IAM role the Cielara control plane assumes via STS — gated by
 a per-tenant External ID — with a service-scoped inline policy covering
@@ -34,10 +40,33 @@ export AWS_PROFILE=<your-profile>    # or static keys via: aws configure
 export AWS_REGION=<region>           # see "Pick a region and keep it"
 ```
 
+The Cielara deploy form serves a generated `main.tf` — provider, backend
+guidance, and this module pinned to the exact version your deployment
+expects, inputs pre-filled. Drop it in an empty folder. Writing the call
+yourself instead:
+
+```hcl
+provider "aws" {
+  region = "us-east-2" # see "Pick a region and keep it"
+}
+
+module "cielara_prepare" {
+  source  = "causal-dynamics-lab/cielara-prepare-eks/aws"
+  version = "X.Y.Z" # the exact version the Cielara deploy form names
+
+  # Both values come from your Cielara tenant — the deploy form pre-fills them.
+  control_plane_principal_arn = "<control plane principal ARN>"
+  external_id                 = "<your per-tenant External ID>"
+
+  region = "us-east-2" # must match the provider block
+
+  # Recorded into the handback so Cielara can show where your Terraform
+  # state lives: "local", or your remote backend URL (s3://bucket/key).
+  state_storage_url = "local"
+}
+```
+
 ```bash
-cd cielara-prepare/eks
-# Download the pre-filled terraform.tfvars from the Cielara deploy form
-# (it carries the control plane principal and your Cielara client id).
 terraform init
 terraform apply
 ```
@@ -45,15 +74,16 @@ terraform apply
 The apply writes `cielara-creds.json` (holding the deployer role ARN and
 the `storage_url` where your Terraform state is kept) into
 the working directory — upload it in the Cielara deploy form to fill the
-**Role ARN** field. `terraform output -raw role_arn` prints the same value
-if you prefer to paste it.
+**Role ARN** field. Prefer pasting the value? Re-export the module output
+(`output "role_arn" { value = module.cielara_prepare.role_arn }`) and
+`terraform output -raw role_arn` prints it.
 
 ## Pick a region and keep it
 
 The deployer role is global, but the JWT signing key and the infra-version
 bucket below are both regional, so the region this module runs in becomes part
-of the account's state. `region` is required in `terraform.tfvars` — it is no
-longer inferred from `AWS_REGION`, because an operator's shell silently
+of the account's state. `region` is a required module input — it is not
+inferred from `AWS_REGION`, because an operator's shell silently
 deciding where the signing key lives is exactly the failure it prevents: the
 key's alias ARN is regional and the control plane builds it from the deploy
 form's region, so a mismatch fails at the first login. Keep it identical on
@@ -90,20 +120,42 @@ keep it anyway:
 
 - **Never send the state to Cielara** — Cielara never needs it.
 - Local state is fine for a single operator. For a team, configure a remote
-  backend in your own cloud account — see `backend.tf`.
+  backend in your own cloud account — see "Remote state" below.
 - **Keep the state.** Cielara occasionally extends the prepare resource set;
   re-applying this module (at the version the Cielara UI links) picks the
   additions up in place.
 - Lost the state? Re-adopt the existing resources with `migrate = true`
   (see below) — do not delete or recreate anything.
 
+### Remote state
+
+Terraform ignores backend blocks inside a published module — the backend
+belongs in your root module, next to the `module` call. The Cielara-generated
+`main.tf` carries one already: filled in when your deployment has a recorded
+state location, commented out otherwise. Writing it by hand:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket = "<your-terraform-state-bucket>"
+    key    = "cielara-prepare/eks/terraform.tfstate"
+    region = "<bucket-region>"
+  }
+}
+```
+
+Any backend pointing at storage you own works — the other clouds' backends
+are just as good. Adding it after a local-state apply: run `terraform init
+-migrate-state` once.
+
 ## Already prepared with the script, or lost your state?
 
 The role imports derive from your Cielara client id and the JWT signing key
-resolves through its alias, so there is no discovery step — set one variable:
+resolves through its alias, so there is no discovery step — set one module
+argument, `migrate = true` (the deploy form's "already prepared" toggle
+serves the generated `main.tf` with it set), then:
 
 ```bash
-echo 'migrate = true' >> terraform.tfvars
 terraform init
 terraform plan
 ```
@@ -114,8 +166,9 @@ postdate the scripts) — nothing changed, nothing destroyed. If an earlier run
 of this module already created the infra-version bucket (lost state), the
 module detects that and imports the bucket too — the check runs `aws s3api
 head-bucket` via `check-version-marker.sh`, so migrations need the AWS CLI
-authenticated. Then:
-Adopting an account prepared **before the JWT signing key existed**? Re-run
+authenticated. Adopting an account prepared **before the JWT signing key
+existed**? Re-run the latest prepare once first (idempotent) — the migrate
+imports expect the key and alias to exist. Then:
 
 ```bash
 terraform apply
@@ -131,7 +184,7 @@ are adopted exactly as they are.
 variable names the live generation; the alias always targets the highest one.
 
 ```hcl
-jwt_key_generation = 2   # terraform.tfvars — was 1
+jwt_key_generation = 2 # module argument — was 1
 ```
 
 Everything a rotation has to get right comes with that: the new ECC P-256 key
@@ -171,18 +224,13 @@ key linger until it elapses.
 ## TLDR / CLI
 
 ```bash
-git clone https://github.com/causal-dynamics-lab/terraform.git
-cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
-cd cielara-prepare/eks
+mkdir cielara-prepare-eks && cd cielara-prepare-eks
+# Download the generated main.tf from the Cielara deploy form into this folder.
 
 aws sso login --profile <profile> && export AWS_PROFILE=<profile>
-export AWS_REGION=<region>
 
-# Download the pre-filled terraform.tfvars from the Cielara deploy form
-# (or copy terraform.tfvars.example and edit it).
-
-# Already prepared (script or lost state)? Add:
-#   echo 'migrate = true' >> terraform.tfvars
+# Already prepared (script or lost state)? Use the deploy form's "already
+# prepared" toggle — the downloaded file carries migrate = true.
 
 terraform init
 terraform plan     # migrating: only imports + the marker additions, 0 destroy

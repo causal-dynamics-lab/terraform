@@ -1,5 +1,11 @@
 # Cielara GCP VM prepare
 
+> Published to the Terraform Registry as
+> [`causal-dynamics-lab/cielara-prepare-vm/google`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-prepare-vm/google/latest)
+> via the read-only mirror repo `terraform-google-cielara-prepare-vm`.
+> Development, history, and issues:
+> [causal-dynamics-lab/terraform](https://github.com/causal-dynamics-lab/terraform).
+
 Prepares your GCP project for a Cielara VM deployment. Creates the service
 account, IAM roles, and API enablements the Cielara control plane needs, and
 writes the deployer key file you upload back in the Cielara deploy form.
@@ -33,13 +39,33 @@ strands the old one.
 Requires Terraform >= 1.7 and the gcloud CLI, signed in to the target project
 as an owner (or with equivalent IAM + Service Usage admin permissions).
 
+The Cielara deploy form serves a generated `main.tf` — provider, backend
+guidance, and this module pinned to the exact version your deployment
+expects, inputs pre-filled. Drop it in an empty folder. Writing the call
+yourself instead:
+
+```hcl
+provider "google" {
+  project = "my-gcp-project"
+}
+
+module "cielara_prepare" {
+  source  = "causal-dynamics-lab/cielara-prepare-vm/google"
+  version = "X.Y.Z" # the exact version the Cielara deploy form names
+
+  project_id = "my-gcp-project"
+  region     = "us-central1" # must match the deploy form's region
+
+  # Recorded into the handback so Cielara can show where your Terraform
+  # state lives: "local", or your remote backend URL (gs://bucket/prefix).
+  state_storage_url = "local"
+}
+```
+
 ```bash
-cd cielara-prepare/gcp
 # Terraform reads Application Default Credentials; sign in as part of every apply.
 gcloud auth login
 gcloud auth application-default login
-# Download the pre-filled terraform.tfvars from the Cielara deploy form,
-# or copy terraform.tfvars.example and edit it.
 terraform init
 terraform apply
 ```
@@ -62,8 +88,10 @@ after the apply — it reads the object back authenticated with
 `cielara-key.json`, i.e. as the deployer itself:
 
 ```bash
-terraform -chdir=verify init
-terraform -chdir=verify apply
+# after init, the module source (verify/ included) sits under .terraform/modules/
+terraform -chdir=.terraform/modules/cielara_prepare/verify init
+terraform -chdir=.terraform/modules/cielara_prepare/verify apply \
+  -var key_path=../../../../cielara-key.json
 ```
 
 A 403 in the first minute or two is IAM propagation — retry. Re-running after
@@ -79,12 +107,32 @@ The Terraform state contains the deployer service account's private key.
 
 - **Never send the state to Cielara** — Cielara never needs it.
 - Local state is fine for a single operator. For a team, configure a remote
-  backend in your own cloud account — see `backend.tf`.
+  backend in your own cloud account — see "Remote state" below.
 - **Keep the state.** Cielara occasionally extends the prepare resource set;
   re-applying this module (at the version the Cielara UI links) picks the
   additions up in place.
 - Lost the state? Re-adopt the existing resources with `migrate = true`
   (see below) — do not delete or recreate anything.
+
+### Remote state
+
+Terraform ignores backend blocks inside a published module — the backend
+belongs in your root module, next to the `module` call. The Cielara-generated
+`main.tf` carries one already: filled in when your deployment has a recorded
+state location, commented out otherwise. Writing it by hand:
+
+```hcl
+terraform {
+  backend "gcs" {
+    bucket = "<your-terraform-state-bucket>"
+    prefix = "cielara-prepare/gcp"
+  }
+}
+```
+
+Any backend pointing at storage you own works — `s3` and `azurerm` are just
+as good. Adding it after a local-state apply: run `terraform init
+-migrate-state` once.
 
 ## Already prepared with the script, or lost your state?
 
@@ -94,11 +142,15 @@ changes in your project, your current `cielara-key.json` keeps working, and
 active Cielara deployments are untouched.
 
 ```hcl
-# terraform.tfvars
-project_id = "my-gcp-project"
-migrate    = true
-create_key = false
+module "cielara_prepare" {
+  # ...source, version, and inputs as above...
+  migrate    = true
+  create_key = false
+}
 ```
+
+The deploy form's "already prepared" toggle serves the generated `main.tf`
+with both already set.
 
 ```bash
 terraform init
@@ -159,19 +211,14 @@ confuse them.
 ## TLDR / CLI
 
 ```bash
-git clone https://github.com/causal-dynamics-lab/terraform.git
-cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
-cd cielara-prepare/gcp
+mkdir cielara-prepare-vm && cd cielara-prepare-vm
+# Download the generated main.tf from the Cielara deploy form into this folder.
 
 gcloud auth login
 gcloud auth application-default login
 
-# Download the pre-filled terraform.tfvars from the Cielara deploy form
-# (or copy terraform.tfvars.example and edit it).
-
-# Lost your state after an earlier run? Add:
-#   echo 'migrate = true'    >> terraform.tfvars
-#   echo 'create_key = false' >> terraform.tfvars
+# Lost your state after an earlier run? Use the deploy form's "already
+# prepared" toggle — the downloaded file carries migrate = true, create_key = false.
 
 terraform init
 terraform plan

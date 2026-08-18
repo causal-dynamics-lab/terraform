@@ -1,5 +1,11 @@
 # Cielara AKS prepare
 
+> Published to the Terraform Registry as
+> [`causal-dynamics-lab/cielara-prepare-aks/azurerm`](https://registry.terraform.io/modules/causal-dynamics-lab/cielara-prepare-aks/azurerm/latest)
+> via the read-only mirror repo `terraform-azurerm-cielara-prepare-aks`.
+> Development, history, and issues:
+> [causal-dynamics-lab/terraform](https://github.com/causal-dynamics-lab/terraform).
+
 Prepares your Azure subscription for a Cielara AKS deployment. Creates the
 Entra service principal the Cielara control plane authenticates as, assigns
 its subscription-scoped roles, and writes the credentials file you upload
@@ -32,10 +38,32 @@ az login                              # or: az login --use-device-code
 az account set --subscription <id>
 ```
 
+The Cielara deploy form serves a generated `main.tf` — provider, backend
+guidance, and this module pinned to the exact version your deployment
+expects, inputs pre-filled. Drop it in an empty folder. Writing the call
+yourself instead:
+
+```hcl
+provider "azurerm" {
+  features {}
+  subscription_id = "<subscription id>"
+}
+
+module "cielara_prepare" {
+  source  = "causal-dynamics-lab/cielara-prepare-aks/azurerm"
+  version = "X.Y.Z" # the exact version the Cielara deploy form names
+
+  subscription_id   = "<subscription id>"
+  cielara_client_id = "<your Cielara client id>" # the deploy form pre-fills it
+  location          = "eastus2"
+
+  # Recorded into the handback so Cielara can show where your Terraform
+  # state lives: "local", or your remote backend URL.
+  state_storage_url = "local"
+}
+```
+
 ```bash
-cd cielara-prepare/aks
-# Download the pre-filled terraform.tfvars from the Cielara deploy form
-# (it carries your Cielara client id), or copy terraform.tfvars.example.
 terraform init
 terraform apply
 ```
@@ -90,12 +118,34 @@ The Terraform state contains the service principal's client secret.
 
 - **Never send the state to Cielara** — Cielara never needs it.
 - Local state is fine for a single operator. For a team, configure a remote
-  backend in your own cloud account — see `backend.tf`.
+  backend in your own cloud account — see "Remote state" below.
 - **Keep the state.** Cielara occasionally extends the prepare resource set;
   re-applying this module (at the version the Cielara UI links) picks the
   additions up in place.
 - Lost the state? Re-adopt the existing resources with `migrate = true`
   (see below) — do not delete or recreate anything.
+
+### Remote state
+
+Terraform ignores backend blocks inside a published module — the backend
+belongs in your root module, next to the `module` call. The Cielara-generated
+`main.tf` carries one already: filled in when your deployment has a recorded
+state location, commented out otherwise. Writing it by hand:
+
+```hcl
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "<your-rg>"
+    storage_account_name = "<your-storage-account>"
+    container_name       = "tfstate"
+    key                  = "cielara-prepare-aks.tfstate"
+  }
+}
+```
+
+Any backend pointing at storage you own works — the other clouds' backends
+are just as good. Adding it after a local-state apply: run `terraform init
+-migrate-state` once.
 
 ## Already prepared with the script, or lost your state?
 
@@ -103,10 +153,18 @@ Azure object ids are random (unlike the deterministic GCP names), so the
 migration path needs a discovery step first:
 
 ```bash
-./discover-migrate.sh <your-cielara-client-id>   # writes migrate.auto.tfvars
-terraform init
+terraform init    # downloads the module; the script rides along inside it
+.terraform/modules/cielara_prepare/discover-migrate.sh <your-cielara-client-id>
 terraform plan
 ```
+
+The script writes `migrate.auto.tfvars`. Values in that file only reach the
+module through matching root-level `variable` blocks — the Cielara-generated
+migrate `main.tf` declares them and passes them through. Writing the call by
+hand instead: copy the discovered values into the module block
+(`migrate_app_object_id`, `migrate_sp_object_id`,
+`migrate_contributor_assignment_id`, `migrate_rbac_admin_assignment_id`,
+plus `migrate = true` and `create_secret = false`).
 
 Check the plan: it must show only imports plus new creations (the
 `cielara-creds.json` handback and, unless an earlier module run already
@@ -156,20 +214,17 @@ credential.
 ## TLDR / CLI
 
 ```bash
-git clone https://github.com/causal-dynamics-lab/terraform.git
-cd terraform && git checkout <TAG>        # the tag the Cielara deploy form names
-cd cielara-prepare/aks
+mkdir cielara-prepare-aks && cd cielara-prepare-aks
+# Download the generated main.tf from the Cielara deploy form into this folder.
 
 az login && az account set --subscription <SUBSCRIPTION_ID>
 
-# Download the pre-filled terraform.tfvars from the Cielara deploy form
-# (or copy terraform.tfvars.example and edit it).
-
-# Already prepared (script or lost state)? Run the discovery step instead of
-# hand-setting anything (Windows: run through Git Bash):
-#   ./discover-migrate.sh <CIELARA_CLIENT_ID>
-
 terraform init
+
+# Already prepared (script or lost state)? Use the deploy form's "already
+# prepared" toggle, then run the discovery step (Windows: through Git Bash):
+#   .terraform/modules/cielara_prepare/discover-migrate.sh <CIELARA_CLIENT_ID>
+
 terraform plan     # migrating: only imports + the marker additions, 0 destroy
 terraform apply
 terraform plan     # must print: No changes.
