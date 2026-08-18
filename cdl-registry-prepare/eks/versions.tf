@@ -16,11 +16,3 @@ terraform {
     }
   }
 }
-
-# IAM is global, but the infra-version bucket is regional, so the region this
-# runs in is now part of the account's state, not an incidental detail of the
-# operator's shell. var.region pins it; null falls back to AWS_REGION or the
-# active profile, same as prepare-eks.sh.
-provider "aws" {
-  region = var.region
-}

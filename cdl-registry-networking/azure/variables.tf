@@ -1,30 +1,4 @@
 #################################################
-# Azure auth (customer-supplied)
-#################################################
-variable "subscription_id" {
-  description = "Azure subscription ID the network is created in"
-  type        = string
-}
-
-variable "tenant_id" {
-  description = "Azure AD (Entra) tenant ID"
-  type        = string
-}
-
-variable "azure_client_id" {
-  description = "Optional service-principal app (client) ID. Leave empty to use az login / ARM_* env vars."
-  type        = string
-  default     = ""
-}
-
-variable "azure_client_secret" {
-  description = "Optional service-principal client secret. Leave empty to use az login / ARM_* env vars."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-#################################################
 # Resource group (customer brings their own — adopted, never created)
 #################################################
 variable "resource_group_name" {

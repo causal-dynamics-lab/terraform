@@ -14,12 +14,6 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "credentials_file" {
-  description = "Path to a GCP service-account key JSON. Empty (default) uses Application Default Credentials (gcloud auth application-default login)."
-  type        = string
-  default     = ""
-}
-
 #################################################
 # Naming + ownership label
 #################################################

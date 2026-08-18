@@ -1,30 +1,4 @@
 #################################################
-# Azure auth (customer-supplied) — mirrors the vnet module
-#################################################
-variable "subscription_id" {
-  description = "Azure subscription ID (must be the one the vnet module ran in)"
-  type        = string
-}
-
-variable "tenant_id" {
-  description = "Azure AD (Entra) tenant ID"
-  type        = string
-}
-
-variable "azure_client_id" {
-  description = "Optional service-principal app (client) ID. Leave empty to use az login / ARM_* env vars."
-  type        = string
-  default     = ""
-}
-
-variable "azure_client_secret" {
-  description = "Optional service-principal client secret. Leave empty to use az login / ARM_* env vars."
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-#################################################
 # Network handles — adopted from the vnet module (by name)
 #
 # This module creates NO network of its own. It looks the VNet, resource group,

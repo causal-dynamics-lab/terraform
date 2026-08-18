@@ -77,6 +77,7 @@ resource "google_compute_address" "nat_ip" {
   region       = var.region
   address_type = "EXTERNAL"
   description  = "Static external IP for the Cloud NAT gateway"
+  labels       = local.owner_labels
 }
 
 resource "google_compute_router" "router" {
