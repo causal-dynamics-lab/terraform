@@ -55,6 +55,20 @@ resource "azurerm_key_vault_key" "jwt_signing" {
   # retries data-plane 403s for a while, and this dependency makes the
   # assignment exist before the first attempt.
   depends_on = [azurerm_role_assignment.applier_jwt_crypto_officer]
+
+  # Opt-in scheduled rotation: a new version that many months after each
+  # version's creation, no expiry — earlier versions stay enabled and keep
+  # verifying, and the versionless key reference resolves to the newest.
+  # On-demand rotation stays `az keyvault key rotate` (see the README).
+  dynamic "rotation_policy" {
+    for_each = var.jwt_key_auto_rotation_months > 0 ? [1] : []
+
+    content {
+      automatic {
+        time_after_creation = "P${var.jwt_key_auto_rotation_months}M"
+      }
+    }
+  }
 }
 
 # The runtime signing identity admin-backend federates as (Workload Identity).

@@ -235,8 +235,8 @@ resource "google_kms_key_ring" "jwt" {
 }
 
 # KMS keys cannot be deleted, only their versions disabled/destroyed. Rotation
-# and revocation stay customer-run:
-#   rotate: gcloud kms keys versions create --keyring cielara-jwt --key jwt-signing --location <region>
+# is a jwt_key_generation bump (the version resource below); revocation stays
+# customer-run:
 #   revoke: gcloud kms keys versions disable <N> --keyring cielara-jwt --key jwt-signing --location <region>
 resource "google_kms_crypto_key" "jwt_signing" {
   name     = "jwt-signing"
@@ -257,6 +257,17 @@ resource "google_kms_crypto_key" "jwt_signing" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# The key is born with version 1; each generation past the first is an explicit
+# version. The data plane signs with the highest ENABLED version, so a bump
+# rotates inside its ~5-minute key cache and a decrement rolls back (the
+# dropped version is scheduled for destruction, recoverable inside the KMS
+# window). Versions created out-of-band shift the numbering, never the
+# behavior.
+resource "google_kms_crypto_key_version" "jwt_signing" {
+  for_each   = toset([for g in range(2, var.jwt_key_generation + 1) : tostring(g)])
+  crypto_key = google_kms_crypto_key.jwt_signing.id
 }
 
 resource "google_project_iam_custom_role" "app_jwt_signer" {

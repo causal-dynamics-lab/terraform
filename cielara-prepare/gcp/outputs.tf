@@ -22,3 +22,8 @@ output "state_storage_url" {
   description = "Where this module's Terraform state is kept (as supplied via state_storage_url — shown in the Cielara manage tab)"
   value       = var.state_storage_url
 }
+
+output "jwt_key_generation" {
+  description = "JWT signing key generation this state holds. Rotation = increment + re-apply; earlier crypto-key versions stay enabled so a rollback is a decrement."
+  value       = var.jwt_key_generation
+}
