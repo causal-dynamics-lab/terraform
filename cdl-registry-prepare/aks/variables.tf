@@ -82,3 +82,14 @@ variable "state_storage_url" {
     error_message = "Must not be empty — record where the Terraform state is kept."
   }
 }
+
+variable "jwt_key_auto_rotation_months" {
+  description = "Months between automatic JWT signing-key rotations (Key Vault rotation policy). 0 disables the policy - rotation stays on-demand via az keyvault key rotate. Earlier versions stay enabled either way. See the README."
+  type        = number
+  default     = 0
+
+  validation {
+    condition     = var.jwt_key_auto_rotation_months >= 0 && floor(var.jwt_key_auto_rotation_months) == var.jwt_key_auto_rotation_months
+    error_message = "Must be a whole number of months; 0 disables automatic rotation."
+  }
+}

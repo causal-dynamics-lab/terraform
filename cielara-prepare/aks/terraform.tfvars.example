@@ -16,3 +16,7 @@ state_storage_url = "https://mystorageaccount.blob.core.windows.net/tfstate/ciel
 # hand - it writes migrate.auto.tfvars with the object ids.
 # migrate       = true
 # create_secret = false
+
+# Months between automatic JWT signing-key rotations (Key Vault rotation
+# policy). 0 = on-demand only, via: az keyvault key rotate (see the README).
+# jwt_key_auto_rotation_months = 0
