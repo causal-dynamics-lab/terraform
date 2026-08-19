@@ -31,6 +31,17 @@ jobs:
           - cielara-enterprise-cloud-network/aws/vpc
           - cielara-enterprise-cloud-network/aws/remote-cluster-connectivity
           - cielara-enterprise-cloud-network/gcp/vpc
+          - cdl-registry-prepare/gke
+          - cdl-registry-prepare/gcp
+          - cdl-registry-prepare/aks
+          - cdl-registry-prepare/eks
+          - cdl-registry-prepare/gke/verify
+          - cdl-registry-prepare/gcp/verify
+          - cdl-registry-networking/aws
+          - cdl-registry-networking/aws/modules/remote-cluster-connectivity
+          - cdl-registry-networking/azure
+          - cdl-registry-networking/azure/modules/private-endpoints
+          - cdl-registry-networking/gcp
     defaults:
       run:
         working-directory: ${{ matrix.module }}
