@@ -123,15 +123,20 @@ confuse them.
   module never rotates an existing one — `create_key = false` leaves your
   current file valid. Rotate it through the Cielara credential UI, not here.
 - **JWT signing key** (keyring `cielara-jwt`, key `jwt-signing`): rotation
-  *and* revocation are yours, not Cielara's. Neither goes through terraform —
-  the control plane holds no permission to create, disable, or destroy a
-  version, which is the whole point of the key living in your project.
+  *and* revocation are yours, not Cielara's — the control plane holds no
+  permission to create, disable, or destroy a version, which is the whole
+  point of the key living in your project. **Rotation is a
+  `jwt_key_generation` bump and nothing else**: each generation past the
+  first is a new ENABLED crypto-key version, and the VM signs with the
+  highest one.
+
+  ```hcl
+  jwt_key_generation = 2   # terraform.tfvars — was 1
+  ```
+
+  Revocation stays a gcloud one-liner:
 
   ```bash
-  # rotate: add a version; the VM signs with the highest ENABLED one
-  gcloud kms keys versions create \
-    --keyring cielara-jwt --key jwt-signing --location <region>
-
   # revoke: stop a version verifying (and signing, if it was the newest)
   gcloud kms keys versions disable <N> \
     --keyring cielara-jwt --key jwt-signing --location <region>
@@ -144,8 +149,9 @@ confuse them.
   failing inside the same window, so revoke is the command to reach for when you
   believe a key is compromised.
 
-  Rollback of a rotation is `versions disable` on the newer version — the data
-  plane falls back to the highest one still enabled.
+  Rollback of a rotation is a `jwt_key_generation` decrement (the dropped
+  version is scheduled for destruction, recoverable inside the KMS window) —
+  the data plane falls back to the highest version still enabled.
 - `terraform destroy` removes the service account and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
   shared with other workloads in the project.

@@ -182,15 +182,23 @@ confuse them.
   module never rotates an existing one — `create_key = false` leaves your
   current file valid. Rotate it through the Cielara credential UI, not here.
 - **JWT signing key** (keyring `cielara-jwt`, key `jwt-signing`): rotation
-  *and* revocation are yours, not Cielara's. Neither goes through terraform —
-  the control plane holds no permission to create, disable, or destroy a
-  version, which is the whole point of the key living in your project.
+  *and* revocation are yours, not Cielara's — the control plane holds no
+  permission to create, disable, or destroy a version, which is the whole
+  point of the key living in your project. **Rotation is a
+  `jwt_key_generation` bump and nothing else**: each generation past the
+  first is a new ENABLED crypto-key version, and the data plane signs with the
+  highest one.
+
+  ```hcl
+  module "cielara_prepare" {
+    # ...source, version, and inputs as before...
+    jwt_key_generation = 2 # was 1
+  }
+  ```
+
+  Revocation stays a gcloud one-liner:
 
   ```bash
-  # rotate: add a version; the data plane signs with the highest ENABLED one
-  gcloud kms keys versions create \
-    --keyring cielara-jwt --key jwt-signing --location <region>
-
   # revoke: stop a version verifying (and signing, if it was the newest)
   gcloud kms keys versions disable <N> \
     --keyring cielara-jwt --key jwt-signing --location <region>
@@ -204,8 +212,13 @@ confuse them.
   30s, tokens 401'd within a minute), so revoke is the command to reach for when
   you believe a key is compromised.
 
-  Rollback of a rotation is `versions disable` on the newer version — the data
-  plane falls back to the highest one still enabled.
+  Rollback of a rotation is a `jwt_key_generation` decrement (the dropped
+  version is scheduled for destruction, recoverable inside the KMS window) —
+  the data plane falls back to the highest version still enabled.
+
+  The re-rendered `main.tf` from the Cielara lifecycle panel carries the
+  expected generation, so rotation is the same download-and-apply motion as
+  an upgrade.
 - `terraform destroy` removes the service accounts and roles (breaking any
   active Cielara deployment) but never disables the enabled APIs — they may be
   shared with other workloads in the project.
