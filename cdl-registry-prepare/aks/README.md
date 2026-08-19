@@ -194,6 +194,14 @@ and nothing else. Key Vault keeps the earlier versions, so tokens already issued
 keep verifying until you disable the version they were signed with. The data
 plane picks the new version up within its ~5-minute key cache.
 
+Prefer a schedule? Set `jwt_key_auto_rotation_months` (any whole number of
+months) and re-apply: a Key Vault rotation policy mints a new version that
+long after each version's creation, with no expiry — earlier versions stay
+enabled and the versionless key reference keeps resolving to the newest.
+Setting it back to 0 stops managing the policy but leaves the last one on the
+key; overwrite it with `az keyvault key rotation-policy update` if you want
+it gone.
+
 Revoking a version needs it disabled:
 `az keyvault key set-attributes --vault-name <vault> --name jwt-signing --version <ver> --enabled false`.
 It leaves the published key set at the next cache refresh, and tokens signed

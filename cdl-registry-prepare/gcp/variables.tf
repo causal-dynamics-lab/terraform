@@ -45,3 +45,14 @@ variable "state_storage_url" {
     error_message = "Must not be empty — record where the Terraform state is kept."
   }
 }
+
+variable "jwt_key_generation" {
+  description = "Increment to rotate the JWT signing key. Each generation past the first is a new crypto-key version; the data plane signs with the highest ENABLED version and earlier ones stay enabled, so a rollback is a decrement. See the README."
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.jwt_key_generation >= 1 && floor(var.jwt_key_generation) == var.jwt_key_generation
+    error_message = "Must be a whole number >= 1; increment by one to rotate."
+  }
+}

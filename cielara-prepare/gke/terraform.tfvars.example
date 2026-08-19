@@ -19,3 +19,7 @@ region = "us-central1"
 
 # Where the deployer key file is written on apply.
 # key_output_path = "cielara-key.json"
+
+# Increment to rotate the JWT signing key (see the README's rotation section).
+# Earlier crypto-key versions stay enabled, so a rollback is a decrement.
+# jwt_key_generation = 1
