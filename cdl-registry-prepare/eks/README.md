@@ -150,10 +150,13 @@ are just as good. Adding it after a local-state apply: run `terraform init
 
 ## Already prepared with the script, or lost your state?
 
-The role imports derive from your Cielara client id and the JWT signing key
-resolves through its alias, so there is no discovery step — set one module
-argument, `migrate = true` (the deploy form's "already prepared" toggle
-serves the generated `main.tf` with it set), then:
+The role import ids derive from your Cielara client id and the JWT signing
+key resolves through its alias, so there is no discovery step. Terraform only
+allows `import` blocks in the root module, so they cannot ship inside this
+module: the generated `main.tf` from the deploy form's "already prepared"
+toggle carries them, keyed on this module's `probe_*` outputs, alongside
+`migrate = true`. Use that file (writing the call by hand means copying its
+import blocks too), then:
 
 ```bash
 terraform init
@@ -164,11 +167,12 @@ Check the plan: it must show only the 2 imports plus new creations (the
 `cielara-creds.json` handback and the infra-version bucket resources, which
 postdate the scripts) — nothing changed, nothing destroyed. If an earlier run
 of this module already created the infra-version bucket (lost state), the
-module detects that and imports the bucket too — the check runs `aws s3api
-head-bucket` via `check-version-marker.sh`, so migrations need the AWS CLI
-authenticated. Adopting an account prepared **before the JWT signing key
-existed**? Re-run the latest prepare once first (idempotent) — the migrate
-imports expect the key and alias to exist. Then:
+module detects that — the check runs `aws s3api head-bucket` via
+`check-version-marker.sh`, so migrations need the AWS CLI authenticated —
+and the generated file's import block adopts the bucket too. Adopting an
+account prepared **before the JWT signing key existed**? Re-run the latest
+prepare once first (idempotent) — the adoption imports expect the key and
+alias to exist. Then:
 
 ```bash
 terraform apply
@@ -230,7 +234,7 @@ mkdir cielara-prepare-eks && cd cielara-prepare-eks
 aws sso login --profile <profile> && export AWS_PROFILE=<profile>
 
 # Already prepared (script or lost state)? Use the deploy form's "already
-# prepared" toggle — the downloaded file carries migrate = true.
+# prepared" toggle — the downloaded file carries migrate = true and the import blocks.
 
 terraform init
 terraform plan     # migrating: only imports + the marker additions, 0 destroy

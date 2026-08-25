@@ -134,21 +134,17 @@ as good. Adding it after a local-state apply: run `terraform init
 
 ## Already prepared with the script, or lost your state?
 
-Set `migrate = true` (with `create_key = false`) and apply: every existing
-prepare resource is imported into state instead of recreated — nothing
-changes in your project, your current `cielara-key.json` keeps working, and
-active Cielara deployments are untouched.
-
-```hcl
-module "cielara_prepare" {
-  # ...source, version, and inputs as above...
-  migrate    = true
-  create_key = false
-}
-```
+Adoption imports every existing prepare resource into state instead of
+recreating it — nothing changes in your project, your current
+`cielara-key.json` keeps working, and active Cielara deployments are
+untouched. Terraform only allows `import` blocks in the root module, so they
+cannot ship inside this module: the root `main.tf` that calls it carries
+them, keyed on this module's `probe_*` outputs, alongside `migrate = true`
+and `create_key = false`.
 
 The deploy form's "already prepared" toggle serves the generated `main.tf`
-with both already set.
+with all of it — the flags and the full import set. Use that file; writing
+the call by hand means copying its import blocks too.
 
 ```bash
 terraform init
@@ -164,13 +160,13 @@ it — imports of already-managed resources are skipped).
 
 The infra-version bucket postdates the scripts. With `migrate = true` the
 module checks whether it already exists (state lost after a run that had
-already created it) and imports it when it does; otherwise it is created
-fresh. The check runs `gcloud storage buckets describe` via
-`check-version-marker.sh`, so migrations need the gcloud CLI authenticated —
-fresh prepares do not.
+already created it) and the generated file's import block adopts it when it
+does; otherwise it is created fresh. The check runs `gcloud storage buckets
+describe` via `check-version-marker.sh`, so migrations need the gcloud CLI
+authenticated — fresh prepares do not.
 
 Adopting a project prepared **before the JWT signing key existed**? Re-run the
-latest prepare once first (idempotent) — the migrate imports expect the
+latest prepare once first (idempotent) — the adoption imports expect the
 keyring, key, signer account, and signer role to exist.
 
 ## Rotation and teardown
@@ -242,7 +238,7 @@ gcloud auth login
 gcloud auth application-default login
 
 # Already prepared (script or lost state)? Use the deploy form's "already
-# prepared" toggle — the downloaded file carries migrate = true, create_key = false.
+# prepared" toggle — the downloaded file carries migrate = true, create_key = false, and the import blocks.
 
 terraform init
 terraform plan     # migrating: only imports + the marker additions, 0 destroy
