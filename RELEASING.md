@@ -3,32 +3,40 @@
 ## Branch model
 
 - `main` — default branch, the pre-release line. All PRs merge here.
-- `release` — the line releases are cut from. Promote by opening a PR into
-  `release` that cherry-picks the `main` commits you want to ship (squash
-  merge is fine — release history never needs to share commits with main):
+- `release/<minor>` (e.g. `release/0.4`) — one train branch per minor. Every
+  `0.4.Z` release and its alpha/beta tags are cut from `release/0.4`. Promote
+  by opening a PR into the train branch that cherry-picks the `main` commits
+  you want to ship (squash merge is fine — release history never needs to
+  share commits with main):
 
   ```bash
   git fetch origin
-  git checkout -b promote-x origin/release
+  git checkout -b promote-x origin/release/0.4
   git cherry-pick <main-commit> [<main-commit>...]
-  git push origin promote-x   # then open a PR into release
+  git push origin promote-x   # then open a PR into release/0.4
   ```
 
+- A new minor starts a new train: branch `release/0.5` from `main`. Older
+  trains stay open — a `0.4.Z` hotfix keeps cutting from `release/0.4` no
+  matter how far `release/0.5` has moved.
+
 No branch ever carries a version: `prepare_version` stays `0.0.0-dev` on
-`main` and `release` alike. The release workflow stamps the version on a
-detached commit that only the release tag points to, so cloning a tag gets a
-stamped tree while the branches stay untouched.
+`main` and every train branch alike. The release workflow stamps the version
+on a detached commit that only the release tag points to, so cloning a tag
+gets a stamped tree while the branches stay untouched.
 
 ## Cutting a release
 
-Actions → `release` → Run workflow. Pick branch **`release`**, a channel, and
-the base version (`0.4.0` — plain `X.Y.Z`, no channel suffix). The workflow
+Actions → `release` → Run workflow. Pick the **train branch**
+(`release/<minor>`), a channel, and the base version (`0.4.0` — plain
+`X.Y.Z`, no channel suffix; must belong to the branch's train, `release/0.4`
+only cuts `0.4.Z`). The workflow
 picks the prerelease counter itself: if `v0.4.0-alpha.11` is the highest
 existing alpha for that base, the new alpha is `v0.4.0-alpha.12` (mirroring
 core's `get-next-alpha-version.sh`). Stable tags are just `vX.Y.Z`.
 
-- **alpha** — a new cut from the release branch. `source` is any commit on
-  `release` (leave empty for the head).
+- **alpha** — a new cut from the train branch. `source` is any commit on
+  it (leave empty for the head).
 - **beta** — a promotion of an existing alpha (or an earlier beta). `source`
   is that tag, e.g. `v0.4.0-alpha.2`, and its `X.Y.Z` must match the base.
 - **stable** — a promotion of an existing alpha or beta tag, same rules.
@@ -133,7 +141,8 @@ cut a fresh alpha instead.
   tag (`git push origin :refs/tags/vX.Y.Z`) and re-dispatch. Once the
   registry watches the mirrors this only applies while no mirror got the
   tag — otherwise supersede with the next version.
-- Dispatching from any branch other than `release` fails immediately.
+- Dispatching from anything but a `release/X.Y` branch fails immediately, as
+  does a base version outside the branch's train.
 
 ## One-time repo setup
 
@@ -146,7 +155,7 @@ cut a fresh alpha instead.
 - GitHub environments `release` (reviewers: Ryan/Atiqur/Mehran) and
   `release-stable` (Ryan) — created implicitly on first dispatch; add the
   required reviewers in repo settings to arm the approval gates.
-- The repo ruleset requires PRs into `main` and `release`; the workflow never
-  pushes to a branch, so it needs no bypass. Manual `v*` tags are blocked
+- The repo ruleset requires PRs into `main` and `release/*`; the workflow
+  never pushes to a branch, so it needs no bypass. Manual `v*` tags are blocked
   only by convention (the workflow refuses to reuse an existing tag) — a tag
   ruleset with a GitHub Actions bypass actor would harden this if wanted.

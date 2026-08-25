@@ -23,7 +23,7 @@ on:
         type: string
         required: true
       source:
-        description: "alpha: commit on the release branch (empty = head). beta/stable: the alpha/beta tag being promoted."
+        description: "alpha: commit on the release/X.Y branch (empty = head). beta/stable: the alpha/beta tag being promoted."
         type: string
         required: false
         default: ''
@@ -49,11 +49,13 @@ jobs:
       CHANNEL: ${{ inputs.channel }}
       SOURCE: ${{ inputs.source }}
     steps:
-      - name: Refuse to release from anything but the release branch
-        if: github.ref != 'refs/heads/release'
+      - name: Refuse to release from anything but a release/X.Y branch
         run: |
-          echo "Releases are cut from the release branch only (got ${GITHUB_REF})." >&2
-          exit 1
+          if ! [[ "$GITHUB_REF" =~ ^refs/heads/release/[0-9]+\.[0-9]+$ ]]; then
+            echo "Releases are cut from a release/X.Y train branch only (got ${GITHUB_REF})." >&2
+            exit 1
+          fi
+          echo "TRAIN=${GITHUB_REF#refs/heads/release/}" >> "$GITHUB_ENV"
 
       - name: Refuse to release without the mirror write token
         env:
@@ -84,6 +86,10 @@ jobs:
             echo "version must be a plain X.Y.Z base (got '$BASE')." >&2
             exit 1
           fi
+          if [ "${base%.*}" != "$TRAIN" ]; then
+            echo "version $base is not on this branch's train — release/$TRAIN only cuts $TRAIN.Z releases." >&2
+            exit 1
+          fi
           if [ "$CHANNEL" = "stable" ]; then
             version="v$base"
             if git rev-parse -q --verify "refs/tags/$version" >/dev/null; then
@@ -110,7 +116,7 @@ jobs:
               exit 1
             fi
             if ! git merge-base --is-ancestor "$src" HEAD; then
-              echo "source '$src' is not on the release branch — alphas are cut from release-branch commits only." >&2
+              echo "source '$src' is not on release/$TRAIN — alphas are cut from the train branch's commits only." >&2
               exit 1
             fi
           else
