@@ -87,35 +87,3 @@ locals {
   infra_version_marker_exists = try(data.external.infra_version_marker[0].result.exists, "false") == "true"
   infra_version_ra_id         = try(data.external.infra_version_marker[0].result.ra_id, "")
 }
-
-import {
-  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
-  to       = azurerm_resource_group.infra_version
-  id       = "/subscriptions/${var.subscription_id}/resourceGroups/${local.infra_version_rg_name}"
-}
-
-import {
-  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
-  to       = azurerm_storage_account.infra_version
-  id       = "/subscriptions/${var.subscription_id}/resourceGroups/${local.infra_version_rg_name}/providers/Microsoft.Storage/storageAccounts/${local.infra_version_account_name}"
-}
-
-import {
-  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
-  to       = azurerm_storage_container.infra_version
-  id       = "/subscriptions/${var.subscription_id}/resourceGroups/${local.infra_version_rg_name}/providers/Microsoft.Storage/storageAccounts/${local.infra_version_account_name}/blobServices/default/containers/infra-version"
-}
-
-import {
-  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
-  to       = azurerm_storage_blob.infra_version
-  id       = "https://${local.infra_version_account_name}.blob.core.windows.net/infra-version/version.json"
-}
-
-# A missing assignment with an existing account stays empty — the module
-# recreates it.
-import {
-  for_each = local.infra_version_ra_id != "" ? toset(["this"]) : toset([])
-  to       = azurerm_role_assignment.deployer_infra_version_read
-  id       = local.infra_version_ra_id
-}
