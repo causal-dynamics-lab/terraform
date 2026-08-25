@@ -42,3 +42,18 @@ output "jwt_signer_identity_client_id" {
   description = "Client ID of the cielara-jwt-signer managed identity the data plane's token signer federates as. The deploy terraform discovers it by its deterministic name; shown here for verification."
   value       = azurerm_user_assigned_identity.jwt_signer.client_id
 }
+
+# Adoption probe results (populated only when migrate = true): the generated
+# root main.tf keys its import blocks on these — import blocks are illegal
+# inside a published child module, so adoption imports live in the caller.
+output "probe_jwt_found" {
+  value = local.jwt_found
+}
+
+output "probe_infra_version_marker_exists" {
+  value = local.infra_version_marker_exists
+}
+
+output "probe_infra_version_ra_id" {
+  value = local.infra_version_ra_id
+}
