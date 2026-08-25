@@ -78,6 +78,18 @@ Mechanics:
   stamped directory plus the repo root `LICENSE`, then the same version tag
   is pushed. Every channel fans out — staging exercises the identical
   download path customers use.
+- **Partial releases**: the `modules` input on an alpha cut narrows the set
+  (`all`, or a CSV of `prepare-gke prepare-gcp prepare-eks prepare-aks
+  network-aws network-azure network-gcp`). The shipped set is recorded as
+  `modules` in `release.json`; beta/stable promotions ignore the input and
+  inherit the source release's set, so a promotion always publishes exactly
+  what its alpha shipped. Mirror version lists go sparse — a module skipped
+  by a release simply has no tag for that version.
+- Until the control plane resolves version pins per module, a partial
+  release that skips a **prepare** module leaves the generated main.tf
+  pinning a version that mirror never got — keep `modules: all` for prepare
+  modules until that lands; the network modules are safe to release
+  selectively now.
 - Mirrors are workflow-authored artifacts. Never commit, push, or tag one by
   hand; never point the parity test at one.
 - A mirror that already carries the tag is skipped, so re-running a

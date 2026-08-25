@@ -32,6 +32,11 @@ on:
         type: string
         required: false
         default: main
+      modules:
+        description: "alpha: which modules to publish — 'all' or a CSV of prepare-gke, prepare-gcp, prepare-eks, prepare-aks, network-aws, network-azure, network-gcp. beta/stable ignore this and inherit the source release's set."
+        type: string
+        required: false
+        default: all
 
 concurrency:
   group: release
@@ -48,6 +53,7 @@ jobs:
       BASE: ${{ inputs.version }}
       CHANNEL: ${{ inputs.channel }}
       SOURCE: ${{ inputs.source }}
+      MODULES_INPUT: ${{ inputs.modules }}
     steps:
       - name: Refuse to release from anything but a release/X.Y branch
         run: |
@@ -141,6 +147,38 @@ jobs:
           git checkout --detach "$src"
           echo "Releasing $VERSION from $(git rev-parse HEAD) ($src)"
 
+      - name: Resolve the module set
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          known="prepare-gke prepare-gcp prepare-eks prepare-aks network-aws network-azure network-gcp"
+          if [ "$CHANNEL" = "alpha" ]; then
+            modules="${MODULES_INPUT:-all}"
+            if [ "$modules" != "all" ]; then
+              for m in ${modules//,/ }; do
+                case " $known " in
+                  *" $m "*) ;;
+                  *) echo "unknown module '$m' — valid: $known (or 'all')." >&2; exit 1 ;;
+                esac
+              done
+            fi
+          else
+            # Promotions ship exactly what the source release shipped — the
+            # module set is metadata of the alpha, not an operator choice.
+            if [ "${MODULES_INPUT:-all}" != "all" ]; then
+              echo "$CHANNEL releases inherit the module set from '$SOURCE' — do not pass modules." >&2
+              exit 1
+            fi
+            modules=$(gh release download "$SOURCE" -p release.json -O - 2>/dev/null |
+              jq -r 'if (.modules // []) | length > 0 then .modules | join(",") else "all" end')
+          fi
+          if [ "$modules" = "all" ]; then
+            modules="$known"
+            modules="${modules// /,}"
+          fi
+          echo "MODULES=$modules" >> "$GITHUB_ENV"
+          echo "Publishing modules: $modules"
+
       - name: Stamp version into the prepare modules
         run: |
           v="${VERSION#v}"
@@ -232,18 +270,28 @@ jobs:
           MIRRORS_TOKEN: ${{ secrets.TERRAFORM_RELEASE_MIRRORS_WRITE_TOKEN }}
         run: |
           set -euo pipefail
+          declare -A dirs=(
+            [prepare-gke]=cdl-registry-prepare/gke
+            [prepare-gcp]=cdl-registry-prepare/gcp
+            [prepare-eks]=cdl-registry-prepare/eks
+            [prepare-aks]=cdl-registry-prepare/aks
+            [network-aws]=cdl-registry-networking/aws
+            [network-azure]=cdl-registry-networking/azure
+            [network-gcp]=cdl-registry-networking/gcp
+          )
           declare -A mirrors=(
-            [cdl-registry-prepare/gke]=terraform-google-cielara-prepare-gke
-            [cdl-registry-prepare/gcp]=terraform-google-cielara-prepare-vm
-            [cdl-registry-prepare/eks]=terraform-aws-cielara-prepare-eks
-            [cdl-registry-prepare/aks]=terraform-azurerm-cielara-prepare-aks
-            [cdl-registry-networking/aws]=terraform-aws-cielara-network
-            [cdl-registry-networking/azure]=terraform-azurerm-cielara-network
-            [cdl-registry-networking/gcp]=terraform-google-cielara-network
+            [prepare-gke]=terraform-google-cielara-prepare-gke
+            [prepare-gcp]=terraform-google-cielara-prepare-vm
+            [prepare-eks]=terraform-aws-cielara-prepare-eks
+            [prepare-aks]=terraform-azurerm-cielara-prepare-aks
+            [network-aws]=terraform-aws-cielara-network
+            [network-azure]=terraform-azurerm-cielara-network
+            [network-gcp]=terraform-google-cielara-network
           )
           src="$PWD"
-          for dir in "${!mirrors[@]}"; do
-            repo="${mirrors[$dir]}"
+          for key in ${MODULES//,/ }; do
+            dir="${dirs[$key]}"
+            repo="${mirrors[$key]}"
             url="https://x-access-token:${MIRRORS_TOKEN}@github.com/causal-dynamics-lab/${repo}.git"
             # Idempotent re-run: a mirror that already carries this tag is done.
             if [ -n "$(git ls-remote "$url" "refs/tags/$VERSION")" ]; then
