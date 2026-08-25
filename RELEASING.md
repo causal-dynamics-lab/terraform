@@ -83,8 +83,10 @@ Mechanics:
 
 ## First registry publish (runbook)
 
-In order — the webhook install is the point of no return (any semver tag on
-a mirror becomes a permanent public module version):
+Publishing goes through HCP Terraform (registry.terraform.io's own publish
+flow is legacy, policy libraries only — verified live 2026-08-26). In order —
+the publish is the point of no return (it installs the webhook; from then on
+any semver tag on a mirror becomes a permanent public module version):
 
 1. Mirror hygiene: rulesets blocking pushes/PRs/tags for everyone but the
    bot; issues/wikis off.
@@ -92,9 +94,15 @@ a mirror becomes a permanent public module version):
    `TERRAFORM_RELEASE_MIRRORS_WRITE_TOKEN`, `release` / `release-stable`
    required reviewers.
 3. Cut a release so every mirror carries at least one semver tag.
-4. Sign in to registry.terraform.io with GitHub, grant the registry app the
-   seven mirrors, and publish each once.
-5. Verify: each docs page renders; `terraform init` resolves every published
+4. HCP account (GitHub sign-in) -> HCP Terraform organization -> install the
+   `terraform-cloud` GitHub App on the mirror org scoped to ONLY the seven
+   mirrors (a non-owner's install lands as a request an org owner approves)
+   -> Registry -> Public namespaces -> New Namespace -> Continue with Github
+   (needs popups allowed) -> claim the org namespace.
+5. Publish each mirror once: Publish -> Module -> select repo -> accept the
+   Terms of Use -> Publish module. Existing semver tags ingest immediately;
+   future tags auto-publish.
+6. Verify: each docs page renders; `terraform init` resolves every published
    address with an exact version pin; a prerelease does NOT resolve from a
    version range or `latest`.
 
