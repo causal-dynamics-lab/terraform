@@ -37,3 +37,14 @@ output "jwt_key_generation" {
   description = "JWT signing key generation this state holds. Rotation = increment + re-apply; earlier crypto-key versions stay enabled so a rollback is a decrement."
   value       = var.jwt_key_generation
 }
+
+# Adoption probe results (populated only when migrate = true): the generated
+# root main.tf keys its import blocks on these — import blocks are illegal
+# inside a published child module, so adoption imports live in the caller.
+output "probe_jwt_existing" {
+  value = local.jwt_existing
+}
+
+output "probe_infra_version_marker_exists" {
+  value = local.infra_version_marker_exists
+}

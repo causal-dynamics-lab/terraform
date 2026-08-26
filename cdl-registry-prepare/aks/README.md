@@ -160,17 +160,21 @@ terraform plan
 
 The script writes `migrate.auto.tfvars`. Values in that file only reach the
 module through matching root-level `variable` blocks — the Cielara-generated
-migrate `main.tf` declares them and passes them through. Writing the call by
-hand instead: copy the discovered values into the module block
-(`migrate_app_object_id`, `migrate_sp_object_id`,
-`migrate_contributor_assignment_id`, `migrate_rbac_admin_assignment_id`,
-plus `migrate = true` and `create_secret = false`).
+migrate `main.tf` declares them and passes them through, and it also carries
+the adoption `import` blocks (keyed on this module's `probe_*` outputs);
+Terraform only allows import blocks in the root module, so they cannot ship
+inside this one. Writing the call by hand instead: copy the discovered
+values into the module block (`migrate_app_object_id`,
+`migrate_sp_object_id`, `migrate_contributor_assignment_id`,
+`migrate_rbac_admin_assignment_id`, plus `migrate = true` and
+`create_secret = false`) and copy the import blocks from the generated
+file too.
 
 Check the plan: it must show only imports plus new creations (the
 `cielara-creds.json` handback and, unless an earlier module run already
 created them, the infra-version resources — the module checks for those via
-`check-version-marker.sh` at plan time and imports what exists) — nothing
-changed, nothing destroyed. Two exceptions are expected: the `version.json` blob is
+`check-version-marker.sh` at plan time; the generated file's import blocks
+adopt what exists) — nothing changed, nothing destroyed. Two exceptions are expected: the `version.json` blob is
 re-uploaded on adoption (one replace — its content is not readable back), and
 if the plan wants to **replace** a role assignment on the *subscription*
 scope, stop: the ABAC condition drifted (Azure replaces an assignment on any

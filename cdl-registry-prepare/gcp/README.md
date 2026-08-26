@@ -95,11 +95,11 @@ terraform -chdir=.terraform/modules/cielara_prepare/verify apply \
 ```
 
 A 403 in the first minute or two is IAM propagation — retry. Re-running after
-a lost state? Set `migrate = true` (and `create_key = false` to keep the
-existing deployer key): the module checks whether the infra-version bucket
-already exists and imports it instead of creating it. The check runs `gcloud
-storage buckets describe` via `check-version-marker.sh`, so it needs the
-gcloud CLI authenticated — fresh prepares do not.
+a lost state? Use the adoption flow ("Already prepared" below): the module
+checks whether the infra-version bucket already exists (via
+`check-version-marker.sh`, which runs `gcloud storage buckets describe`, so
+it needs the gcloud CLI authenticated — fresh prepares do not) and the
+generated file's import block adopts it instead of recreating it.
 
 ## State is a credential
 
@@ -136,21 +136,17 @@ as good. Adding it after a local-state apply: run `terraform init
 
 ## Already prepared with the script, or lost your state?
 
-Set `migrate = true` (with `create_key = false`) and apply: every existing
-prepare resource is imported into state instead of recreated — nothing
-changes in your project, your current `cielara-key.json` keeps working, and
-active Cielara deployments are untouched.
-
-```hcl
-module "cielara_prepare" {
-  # ...source, version, and inputs as above...
-  migrate    = true
-  create_key = false
-}
-```
+Adoption imports every existing prepare resource into state instead of
+recreating it — nothing changes in your project, your current
+`cielara-key.json` keeps working, and active Cielara deployments are
+untouched. Terraform only allows `import` blocks in the root module, so they
+cannot ship inside this module: the root `main.tf` that calls it carries
+them, keyed on this module's `probe_*` outputs, alongside `migrate = true`
+and `create_key = false`.
 
 The deploy form's "already prepared" toggle serves the generated `main.tf`
-with both already set.
+with all of it — the flags and the full import set. Use that file; writing
+the call by hand means copying its import blocks too.
 
 ```bash
 terraform init
@@ -163,7 +159,7 @@ deployer key cannot be imported (Terraform does not support it); it simply
 stays as it is.
 
 Adopting a project prepared **before the JWT signing key existed**? Re-run
-the latest `prepare-gcp.sh` once first (idempotent) — the migrate imports
+the latest `prepare-gcp.sh` once first (idempotent) — the adoption imports
 expect the keyring, key, app account, and signer role to exist.
 
 ## Rotation and teardown
@@ -231,7 +227,7 @@ gcloud auth login
 gcloud auth application-default login
 
 # Lost your state after an earlier run? Use the deploy form's "already
-# prepared" toggle — the downloaded file carries migrate = true, create_key = false.
+# prepared" toggle — the downloaded file carries migrate = true, create_key = false, and the import blocks.
 
 terraform init
 terraform plan
