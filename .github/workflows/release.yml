@@ -301,8 +301,12 @@ jobs:
             work="$(mktemp -d)"
             git clone --quiet --depth 1 "$url" "$work"
             find "$work" -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
-            cp -R "$src/$dir/." "$work/"
-            cp "$src/LICENSE" "$work/LICENSE"
+            # Export from the tagged tree, not the working directory: the
+            # fmt/validate init drops provider caches (up to hundreds of MB)
+            # into the module dirs, and git archive ships tracked files only.
+            strip=$(($(echo "$dir" | tr -cd '/' | wc -c) + 1))
+            git -C "$src" archive "$VERSION" -- "$dir" | tar -x -C "$work" --strip-components="$strip"
+            git -C "$src" archive "$VERSION" LICENSE | tar -x -C "$work"
             git -C "$work" config user.name "github-actions[bot]"
             git -C "$work" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git -C "$work" add -A
