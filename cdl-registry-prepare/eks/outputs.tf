@@ -27,3 +27,14 @@ output "state_storage_url" {
   description = "Where this module's Terraform state is kept (as supplied via state_storage_url — shown in the Cielara manage tab)"
   value       = var.state_storage_url
 }
+
+# Adoption probe results (populated only when migrate = true): the generated
+# root main.tf keys its import blocks on these — import blocks are illegal
+# inside a published child module, so adoption imports live in the caller.
+output "probe_jwt_alias_exists" {
+  value = local.jwt_alias_exists
+}
+
+output "probe_infra_version_marker_exists" {
+  value = local.infra_version_marker_exists
+}
