@@ -57,18 +57,3 @@ resource "google_storage_bucket_iam_member" "deployer_infra_version_read" {
   role   = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.deployer.email}"
 }
-
-# An import block fails hard when the remote object does not exist, so
-# adoption keys on the live existence check above instead of a flag.
-
-import {
-  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
-  to       = google_storage_bucket.infra_version
-  id       = "${var.project_id}/cielara-infra-version-${var.project_id}"
-}
-
-import {
-  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
-  to       = google_storage_bucket_iam_member.deployer_infra_version_read
-  id       = "b/cielara-infra-version-${var.project_id} roles/storage.objectViewer serviceAccount:${local.deployer_sa_email}"
-}

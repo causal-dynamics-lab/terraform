@@ -76,9 +76,3 @@ data "external" "infra_version_marker" {
 locals {
   infra_version_marker_exists = try(data.external.infra_version_marker[0].result.exists, "false") == "true"
 }
-
-import {
-  for_each = local.infra_version_marker_exists ? toset(["this"]) : toset([])
-  to       = aws_s3_bucket.infra_version
-  id       = "cielara-infra-version-${lower(var.external_id)}"
-}

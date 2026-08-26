@@ -23,7 +23,7 @@ on:
         type: string
         required: true
       source:
-        description: "alpha: commit on the release branch (empty = head). beta/stable: the alpha/beta tag being promoted."
+        description: "alpha: commit on the release/X.Y branch (empty = head). beta/stable: the alpha/beta tag being promoted."
         type: string
         required: false
         default: ''
@@ -32,6 +32,11 @@ on:
         type: string
         required: false
         default: main
+      modules:
+        description: "alpha: which modules to publish — 'all' or a CSV of prepare-gke, prepare-gcp, prepare-eks, prepare-aks, network-aws, network-azure, network-gcp. beta/stable ignore this and inherit the source release's set."
+        type: string
+        required: false
+        default: all
 
 concurrency:
   group: release
@@ -43,16 +48,29 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.channel == 'stable' && 'release-stable' || 'release' }}
     env:
       BASE: ${{ inputs.version }}
       CHANNEL: ${{ inputs.channel }}
       SOURCE: ${{ inputs.source }}
+      MODULES_INPUT: ${{ inputs.modules }}
     steps:
-      - name: Refuse to release from anything but the release branch
-        if: github.ref != 'refs/heads/release'
+      - name: Refuse to release from anything but a release/X.Y branch
         run: |
-          echo "Releases are cut from the release branch only (got ${GITHUB_REF})." >&2
-          exit 1
+          if ! [[ "$GITHUB_REF" =~ ^refs/heads/release/[0-9]+\.[0-9]+$ ]]; then
+            echo "Releases are cut from a release/X.Y train branch only (got ${GITHUB_REF})." >&2
+            exit 1
+          fi
+          echo "TRAIN=${GITHUB_REF#refs/heads/release/}" >> "$GITHUB_ENV"
+
+      - name: Refuse to release without the mirror write token
+        env:
+          MIRRORS_TOKEN: ${{ secrets.TERRAFORM_RELEASE_MIRRORS_WRITE_TOKEN }}
+        run: |
+          if [ -z "$MIRRORS_TOKEN" ]; then
+            echo "TERRAFORM_RELEASE_MIRRORS_WRITE_TOKEN is not set — a release that cannot fan out to the mirrors would half-publish. Aborting before anything is tagged." >&2
+            exit 1
+          fi
 
       - uses: actions/checkout@v4
         with:
@@ -72,6 +90,10 @@ jobs:
           base="${BASE#v}"
           if ! [[ "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "version must be a plain X.Y.Z base (got '$BASE')." >&2
+            exit 1
+          fi
+          if [ "${base%.*}" != "$TRAIN" ]; then
+            echo "version $base is not on this branch's train — release/$TRAIN only cuts $TRAIN.Z releases." >&2
             exit 1
           fi
           if [ "$CHANNEL" = "stable" ]; then
@@ -100,7 +122,7 @@ jobs:
               exit 1
             fi
             if ! git merge-base --is-ancestor "$src" HEAD; then
-              echo "source '$src' is not on the release branch — alphas are cut from release-branch commits only." >&2
+              echo "source '$src' is not on release/$TRAIN — alphas are cut from the train branch's commits only." >&2
               exit 1
             fi
           else
@@ -125,20 +147,54 @@ jobs:
           git checkout --detach "$src"
           echo "Releasing $VERSION from $(git rev-parse HEAD) ($src)"
 
+      - name: Resolve the module set
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          known="prepare-gke prepare-gcp prepare-eks prepare-aks network-aws network-azure network-gcp"
+          if [ "$CHANNEL" = "alpha" ]; then
+            modules="${MODULES_INPUT:-all}"
+            if [ "$modules" != "all" ]; then
+              for m in ${modules//,/ }; do
+                case " $known " in
+                  *" $m "*) ;;
+                  *) echo "unknown module '$m' — valid: $known (or 'all')." >&2; exit 1 ;;
+                esac
+              done
+            fi
+          else
+            # Promotions ship exactly what the source release shipped — the
+            # module set is metadata of the alpha, not an operator choice.
+            if [ "${MODULES_INPUT:-all}" != "all" ]; then
+              echo "$CHANNEL releases inherit the module set from '$SOURCE' — do not pass modules." >&2
+              exit 1
+            fi
+            modules=$(gh release download "$SOURCE" -p release.json -O - 2>/dev/null |
+              jq -r 'if (.modules // []) | length > 0 then .modules | join(",") else "all" end')
+          fi
+          if [ "$modules" = "all" ]; then
+            modules="$known"
+            modules="${modules// /,}"
+          fi
+          echo "MODULES=$modules" >> "$GITHUB_ENV"
+          echo "Publishing modules: $modules"
+
       - name: Stamp version into the prepare modules
         run: |
           v="${VERSION#v}"
           # Value-only replacement: terraform fmt owns the spacing around "=",
           # so the pattern must not assume it.
-          sed -E -i "s/(prepare_version[[:space:]]*=[[:space:]]*)\"[^\"]*\"/\\1\"$v\"/" cielara-prepare/*/release.tf
+          sed -E -i "s/(prepare_version[[:space:]]*=[[:space:]]*)\"[^\"]*\"/\\1\"$v\"/" \
+            cielara-prepare/*/release.tf cdl-registry-prepare/*/release.tf
           if [ "$CHANNEL" = "alpha" ]; then
             # HEAD is still the pre-stamp source commit on the release branch —
             # the lineage key promotions inherit. Beta/stable re-stamp the
             # source tag's tree, which already carries the alpha's revision.
             rev="$(git rev-parse HEAD)"
-            sed -E -i "s/(prepare_revision[[:space:]]*=[[:space:]]*)\"[^\"]*\"/\\1\"$rev\"/" cielara-prepare/*/release.tf
+            sed -E -i "s/(prepare_revision[[:space:]]*=[[:space:]]*)\"[^\"]*\"/\\1\"$rev\"/" \
+              cielara-prepare/*/release.tf cdl-registry-prepare/*/release.tf
           else
-            for f in cielara-prepare/*/release.tf; do
+            for f in cielara-prepare/*/release.tf cdl-registry-prepare/*/release.tf; do
               if ! grep -qE 'prepare_revision[[:space:]]*=[[:space:]]*"[0-9a-f]{40}"' "$f"; then
                 echo "$f carries no stamped prepare_revision — promoting a pre-revision tag would publish a lineage-less release. Cut a fresh alpha instead." >&2
                 exit 1
@@ -158,7 +214,9 @@ jobs:
             cielara-ai-foundry \
             cielara-enterprise-cloud-network/azure/vnet cielara-enterprise-cloud-network/azure/private-endpoints \
             cielara-enterprise-cloud-network/aws/vpc cielara-enterprise-cloud-network/aws/remote-cluster-connectivity \
-            cielara-enterprise-cloud-network/gcp/vpc; do
+            cielara-enterprise-cloud-network/gcp/vpc \
+            cdl-registry-prepare/gke cdl-registry-prepare/gcp cdl-registry-prepare/aks cdl-registry-prepare/eks \
+            cdl-registry-networking/aws cdl-registry-networking/azure cdl-registry-networking/gcp; do
             terraform -chdir="$dir" fmt -check -recursive
             terraform -chdir="$dir" init -backend=false -input=false
             terraform -chdir="$dir" validate
@@ -178,7 +236,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add cielara-prepare/gke/release.tf cielara-prepare/gcp/release.tf \
-            cielara-prepare/eks/release.tf cielara-prepare/aks/release.tf VERSION
+            cielara-prepare/eks/release.tf cielara-prepare/aks/release.tf \
+            cdl-registry-prepare/gke/release.tf cdl-registry-prepare/gcp/release.tf \
+            cdl-registry-prepare/eks/release.tf cdl-registry-prepare/aks/release.tf VERSION
           git commit -m "release: $VERSION"
           git tag -a "$VERSION" -m "release: $VERSION ($CHANNEL)"
           git push origin "refs/tags/$VERSION"
@@ -204,3 +264,55 @@ jobs:
             '{version: $version, channel: $channel, revision: $revision, source_tag: $source_tag}' \
             > release.json
           gh release create "$VERSION" $prerelease --generate-notes --title "$VERSION ($CHANNEL)" release.json
+
+      - name: Fan out to the registry mirrors
+        env:
+          MIRRORS_TOKEN: ${{ secrets.TERRAFORM_RELEASE_MIRRORS_WRITE_TOKEN }}
+        run: |
+          set -euo pipefail
+          declare -A dirs=(
+            [prepare-gke]=cdl-registry-prepare/gke
+            [prepare-gcp]=cdl-registry-prepare/gcp
+            [prepare-eks]=cdl-registry-prepare/eks
+            [prepare-aks]=cdl-registry-prepare/aks
+            [network-aws]=cdl-registry-networking/aws
+            [network-azure]=cdl-registry-networking/azure
+            [network-gcp]=cdl-registry-networking/gcp
+          )
+          declare -A mirrors=(
+            [prepare-gke]=terraform-google-cielara-prepare-gke
+            [prepare-gcp]=terraform-google-cielara-prepare-vm
+            [prepare-eks]=terraform-aws-cielara-prepare-eks
+            [prepare-aks]=terraform-azurerm-cielara-prepare-aks
+            [network-aws]=terraform-aws-cielara-network
+            [network-azure]=terraform-azurerm-cielara-network
+            [network-gcp]=terraform-google-cielara-network
+          )
+          src="$PWD"
+          for key in ${MODULES//,/ }; do
+            dir="${dirs[$key]}"
+            repo="${mirrors[$key]}"
+            url="https://x-access-token:${MIRRORS_TOKEN}@github.com/causal-dynamics-lab/${repo}.git"
+            # Idempotent re-run: a mirror that already carries this tag is done.
+            if [ -n "$(git ls-remote "$url" "refs/tags/$VERSION")" ]; then
+              echo "$repo already has $VERSION — skipping"
+              continue
+            fi
+            work="$(mktemp -d)"
+            git clone --quiet --depth 1 "$url" "$work"
+            find "$work" -mindepth 1 -maxdepth 1 -not -name .git -exec rm -rf {} +
+            cp -R "$src/$dir/." "$work/"
+            cp "$src/LICENSE" "$work/LICENSE"
+            git -C "$work" config user.name "github-actions[bot]"
+            git -C "$work" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$work" add -A
+            # Promotions can be byte-identical on mirrors without a release.tf
+            # (networking) — the tag still has to land on the existing commit.
+            if ! git -C "$work" diff --cached --quiet; then
+              git -C "$work" commit --quiet -m "release: $VERSION"
+            fi
+            git -C "$work" tag -a "$VERSION" -m "release: $VERSION ($CHANNEL)"
+            git -C "$work" push --quiet origin HEAD:main "refs/tags/$VERSION"
+            rm -rf "$work"
+            echo "$repo <- $dir @ $VERSION"
+          done
