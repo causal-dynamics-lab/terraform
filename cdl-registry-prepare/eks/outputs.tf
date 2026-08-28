@@ -38,3 +38,7 @@ output "probe_jwt_alias_exists" {
 output "probe_infra_version_marker_exists" {
   value = local.infra_version_marker_exists
 }
+
+output "probe_jwt_alias_target" {
+  value = local.jwt_alias_target
+}
