@@ -110,11 +110,34 @@ resource "google_project_service" "apis" {
 # minute or so — creating the keyring straight after enabling cloudkms fails
 # with `Error 403: ... API has not been used in project <n> before`. Keyed on
 # the API list so a later addition waits again.
+#
+# This is the floor, not the guarantee: 90s was observed to be too short on a
+# fresh project, so the probe below waits out the real propagation window.
+# Anyone applying without the gcloud CLI still gets this fixed wait.
 resource "time_sleep" "api_propagation" {
   create_duration = "90s"
 
   triggers = {
     apis = join(",", local.apis)
+  }
+
+  depends_on = [google_project_service.apis]
+}
+
+# Waits until Cloud KMS actually answers. The keyring create below is this
+# module's first cloudkms call, and a failed one cannot simply be retried: GCP
+# may have made the keyring regardless, keyrings are indelible, and every later
+# apply then plans a replace that can only fail "already exists".
+#
+# Best-effort on purpose. `on_failure = continue` leaves a machine with no
+# gcloud, no bash or no CLI credentials on exactly the behavior it has today
+# — the fixed sleep above — instead of failing the apply.
+resource "terraform_data" "cloudkms_ready" {
+  triggers_replace = [join(",", local.apis)]
+
+  provisioner "local-exec" {
+    command    = "bash '${path.module}/wait-cloudkms.sh' '${var.project_id}' '${var.region}'"
+    on_failure = continue
   }
 
   depends_on = [google_project_service.apis]
@@ -181,7 +204,16 @@ resource "google_kms_key_ring" "jwt" {
   location = var.region
   project  = var.project_id
 
-  depends_on = [time_sleep.api_propagation]
+  depends_on = [time_sleep.api_propagation, terraform_data.cloudkms_ready]
+
+  # GCP never deletes keyrings, so terraform can never satisfy a replace. It
+  # plans one whenever this resource is tainted — a create that errored after
+  # GCP had made the keyring anyway — and the apply then fails "already exists"
+  # on every attempt. Refusing the destroy makes that a plan-time stop naming
+  # this resource, which `terraform untaint` clears (see the README).
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # KMS keys cannot be deleted, only their versions disabled/destroyed. Rotation

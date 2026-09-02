@@ -78,6 +78,28 @@ deployer key plus a `storage_url` field recording where your Terraform state
 is kept (shown in the Cielara manage tab). Upload it in the Cielara deploy
 form. Done.
 
+## If an apply fails partway
+
+Re-run `terraform apply`. Every resource here is idempotent, so a re-run picks
+up where the failure left off — nothing needs cleaning up first.
+
+One case needs a manual step. Creating the KMS keyring is the first call this
+module makes against Cloud KMS, and on a brand-new project that API can still
+be propagating; if the create errors *after* GCP has made the keyring, the
+resource is left tainted. GCP never deletes keyrings, so terraform plans a
+replace it can never satisfy, and the plan stops with `Instance cannot be
+destroyed`. Drop the taint and apply again — the existing keyring is adopted
+as-is and nothing is lost, since the keyring holds no key material of its own:
+
+```bash
+terraform untaint module.cielara_prepare.google_kms_key_ring.jwt
+terraform apply
+```
+
+The module waits for Cloud KMS to start serving before it creates the keyring,
+so this should not happen; it needs the gcloud CLI on your PATH to do so (the
+same CLI you signed in with above).
+
 ## Infra-version marker
 
 The apply also creates a tiny bucket, `cielara-infra-version-<project>`, with
@@ -222,11 +244,11 @@ confuse them.
   `region` change — the keyring location is immutable, so terraform would
   replace the key, scheduling every version for destruction and stopping a
   live data plane signing within minutes. Moving region for real: destroy the
-  Cielara deployment first, delete the `lifecycle` block from
-  `google_kms_crypto_key.jwt_signing` for one apply, and put it back. KMS
-  keyrings and keys cannot be deleted on GCP regardless: a destroy schedules
-  the key's versions for destruction and removes both from state, leaving the
-  empty shells behind.
+  Cielara deployment first, delete the `lifecycle` blocks from
+  `google_kms_key_ring.jwt` and `google_kms_crypto_key.jwt_signing` for one
+  apply, and put them back. KMS keyrings and keys cannot be deleted on GCP
+  regardless: a destroy schedules the key's versions for destruction and
+  removes both from state, leaving the empty shells behind.
 
 ## TLDR / CLI
 
