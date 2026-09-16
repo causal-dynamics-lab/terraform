@@ -8,6 +8,11 @@ locals {
 
   jwt_key_generations    = toset([for g in range(1, var.jwt_key_generation + 1) : tostring(g)])
   jwt_current_generation = tostring(var.jwt_key_generation)
+
+  # Per tenant, like the role and the version-marker bucket: a KMS alias name
+  # is unique per AWS account, so a shared name made the second Cielara tenant
+  # in an account fail on AlreadyExistsException.
+  jwt_alias_name = "alias/cielara-jwt-signing-${var.external_id}"
 }
 
 resource "aws_iam_role" "deployer" {
@@ -59,7 +64,7 @@ resource "aws_kms_key" "jwt_signing" {
 }
 
 resource "aws_kms_alias" "jwt_signing" {
-  name          = "alias/cielara-jwt-signing"
+  name          = local.jwt_alias_name
   target_key_id = aws_kms_key.jwt_signing[local.jwt_current_generation].key_id
 }
 
