@@ -22,7 +22,7 @@ import {
 data "external" "jwt_signing_key" {
   count = var.migrate ? 1 : 0
 
-  program = ["bash", "${path.module}/check-jwt-key.sh"]
+  program = ["bash", "${path.module}/check-jwt-key.sh", local.jwt_alias_name]
 }
 
 locals {
@@ -39,5 +39,5 @@ import {
 import {
   for_each = local.jwt_alias_exists ? toset(["this"]) : toset([])
   to       = aws_kms_alias.jwt_signing
-  id       = "alias/cielara-jwt-signing"
+  id       = local.jwt_alias_name
 }

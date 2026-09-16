@@ -19,13 +19,12 @@ your account.
 | IAM role | `cielara_eks_deployer_<cielara-client-id>` | Identity the Cielara control plane deploys as |
 | Inline role policy | `cielara_eks_deployer_<cielara-client-id>` | Service-scoped grant (EKS, RDS, EFS, Secrets Manager, ACM, ELB + supporting EC2/IAM) — not AdministratorAccess; IAM management is fenced to Cielara-named resources |
 | S3 bucket + object | `cielara-infra-version-<cielara-client-id>` / `version.json` | Version marker the Cielara control plane reads (deployer role gets read via a bucket policy) |
-| KMS key + alias | `alias/cielara-jwt-signing` | Customer-owned JWT signing key (ECC P-256) — its key policy explicitly denies the Cielara deployer roles sign and key administration. One key per `jwt_key_generation`; the alias targets the newest. See "Rotating or revoking the JWT signing key" |
+| KMS key + alias | `alias/cielara-jwt-signing-<cielara-client-id>` | Customer-owned JWT signing key (ECC P-256) — its key policy explicitly denies the Cielara deployer roles sign and key administration. One key per `jwt_key_generation`; the alias targets the newest. See "Rotating or revoking the JWT signing key" |
 | Credentials file | `cielara-creds.json` | The handback — upload it in the Cielara deploy form (written on fresh prepare and adoption alike) |
 
-The role is named per tenant: each Cielara tenant onboarding into the same
-AWS account gets its own role and trust policy. The KMS key is regional
-(created in your active `AWS_REGION`) and shared across Cielara tenants in
-the account.
+Every name is per tenant: each Cielara tenant onboarding into the same AWS
+account gets its own role, trust policy, version-marker bucket, and signing
+key. The KMS key is regional, created in your active `AWS_REGION`.
 
 ## Usage
 
@@ -193,7 +192,7 @@ jwt_key_generation = 2 # module argument — was 1
 
 Everything a rotation has to get right comes with that: the new ECC P-256 key
 carries the deployer-Deny key policy and the `cielara-jwt-signing` tag the data
-plane's signer is authorised against, and `alias/cielara-jwt-signing` moves to
+plane's signer is authorised against, and `alias/cielara-jwt-signing-<cielara-client-id>` moves to
 it. Cielara is not involved and cannot perform or undo it. The data plane
 begins signing with the new key within its ~5-minute key cache.
 
