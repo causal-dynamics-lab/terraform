@@ -35,7 +35,7 @@ variable "migrate" {
 }
 
 variable "jwt_key_generation" {
-  description = "Increment to rotate the JWT signing key. One key per generation; alias/cielara-jwt-signing targets the highest and earlier ones stay enabled, so a rollback is a decrement. See the README."
+  description = "Increment to rotate the JWT signing key. One key per generation; the tenant's signing alias targets the highest and earlier ones stay enabled, so a rollback is a decrement. See the README."
   type        = number
   default     = 1
 

@@ -9,7 +9,7 @@ output "role_name" {
 }
 
 output "jwt_signing_key_arn" {
-  description = "AWS KMS key the data plane currently signs its JWTs with (the generation alias/cielara-jwt-signing targets)"
+  description = "AWS KMS key the data plane currently signs its JWTs with (the generation this tenant's signing alias targets)"
   value       = aws_kms_key.jwt_signing[local.jwt_current_generation].arn
 }
 
