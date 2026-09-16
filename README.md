@@ -8,8 +8,6 @@ Customer-facing Terraform modules for [Cielara](https://cielara.ai) deployments.
 - [`cielara-enterprise-cloud-network/`](cielara-enterprise-cloud-network/) —
   bring-your-own network modules for enterprise deployments (Azure VNet +
   private endpoints, AWS VPC + remote-cluster connectivity, GCP VPC).
-- [`cielara-ai-foundry/`](cielara-ai-foundry/) — Azure AI Foundry account +
-  model deployments for the Cielara data plane.
 - [`cdl-registry-prepare/`](cdl-registry-prepare/) and
   [`cdl-registry-networking/`](cdl-registry-networking/) — Terraform Registry
   editions of the prepare and network modules. Each subdirectory is the exact
