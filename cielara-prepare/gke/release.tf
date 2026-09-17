@@ -1,7 +1,7 @@
 # Stamped by the release workflow on the detached commit each release tag
 # points to; 0.0.0-dev on every branch checkout.
 locals {
-  prepare_version = "0.4.0-alpha.13"
+  prepare_version = "0.4.0-beta.12"
   # Source commit on the release branch, stamped at alpha time and inherited
   # unchanged by beta/stable promotions: equal revisions mean identical trees.
   prepare_revision = "a715a25a8cb0ee260360fa01c469cf5168f78da4"
