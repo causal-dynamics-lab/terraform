@@ -13,9 +13,8 @@ state_storage_url = "gs://my-terraform-state-bucket/cielara-prepare/gcp"
 region = "us-central1"
 
 # Adopting resources that already exist (prepared by prepare-gcp.sh, or state
-# lost)? Set both of these.
-# migrate    = true
-# create_key = false
+# lost)? Set this.
+# migrate = true
 
 # Where the deployer key file is written on apply.
 # key_output_path = "cielara-key.json"

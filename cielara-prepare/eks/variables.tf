@@ -60,3 +60,9 @@ variable "state_storage_url" {
     error_message = "Must not be empty — record where the Terraform state is kept."
   }
 }
+
+variable "bash_path" {
+  description = "Path of the bash that runs this module's CLI checks. Leave null to use Git Bash from its default install location on Windows and bash on PATH everywhere else."
+  type        = string
+  default     = null
+}
