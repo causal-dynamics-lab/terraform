@@ -1,7 +1,7 @@
 # Adoption of an already-prepared project (migrate = true): imports the
 # existing resources instead of creating them. The deployer key cannot be
-# imported (create_key = false keeps the existing one working). After apply,
-# `terraform plan` must show no changes.
+# imported, so a fresh one is written. After apply, `terraform plan` must show
+# no changes.
 
 # API imports iterate the frozen migrate_apis list, not the live one: APIs the
 # module started enabling after the script era are off on a project adopted

@@ -108,16 +108,14 @@ The Terraform state contains the deployer service account's private key.
 
 ## Already prepared with the script, or lost your state?
 
-Set `migrate = true` (with `create_key = false`) and apply: every existing
-prepare resource is imported into state instead of recreated — nothing
-changes in your project, your current `cielara-key.json` keeps working, and
-active Cielara deployments are untouched.
+Set `migrate = true` and apply: every existing prepare resource is imported
+into state instead of recreated, and active Cielara deployments are
+untouched.
 
 ```hcl
 # terraform.tfvars
 project_id = "my-gcp-project"
 migrate    = true
-create_key = false
 ```
 
 ```bash
@@ -127,9 +125,23 @@ terraform plan      # must report: No changes.
 ```
 
 Verify the plan is empty before relying on the migrated state. The existing
-deployer key cannot be imported (Terraform does not support it); it simply
-stays as it is — rotate it through the Cielara credential UI if you ever need
-to. After the first successful apply, set `migrate` back to false (or leave
+deployer key cannot be imported (Terraform does not support it), so
+re-adopting writes a fresh `cielara-key.json` — upload it in the Cielara
+deploy form; the previous deployer key keeps working until you delete it.
+
+GCP allows at most 10 user-managed keys per service account and every
+re-adopt adds one, so delete keys Cielara no longer uses:
+
+```bash
+gcloud iam service-accounts keys list \
+  --iam-account cielara@<project>.iam.gserviceaccount.com --managed-by user
+gcloud iam service-accounts keys delete <KEY_ID> \
+  --iam-account cielara@<project>.iam.gserviceaccount.com
+```
+
+When the limit is reached the plan fails and prints these commands.
+
+After the first successful apply, set `migrate` back to false (or leave
 it — imports of already-managed resources are skipped).
 
 The infra-version bucket postdates the scripts. With `migrate = true` the
@@ -148,9 +160,9 @@ keyring, key, signer account, and signer role to exist.
 Two different keys live in this module, with different rotation stories — do not
 confuse them.
 
-- **Deployer service-account key** (`cielara-key.json`, the handback): this
-  module never rotates an existing one — `create_key = false` leaves your
-  current file valid. Rotate it through the Cielara credential UI, not here.
+- **Deployer service-account key** (`cielara-key.json`, the handback): a
+  normal apply never rotates it; a re-adopt (`migrate = true`) writes a fresh
+  one and leaves the previous key valid until you delete it.
 - **JWT signing key** (keyring `cielara-jwt`, key `jwt-signing`): rotation
   *and* revocation are yours, not Cielara's — the control plane holds no
   permission to create, disable, or destroy a version, which is the whole
@@ -209,8 +221,7 @@ gcloud auth application-default login
 # (or copy terraform.tfvars.example and edit it).
 
 # Already prepared (script or lost state)? Add:
-#   echo 'migrate = true'    >> terraform.tfvars
-#   echo 'create_key = false' >> terraform.tfvars
+#   echo 'migrate = true' >> terraform.tfvars
 
 terraform init
 terraform plan     # migrating: only imports + the marker additions, 0 destroy

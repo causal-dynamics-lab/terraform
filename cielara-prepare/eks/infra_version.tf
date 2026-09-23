@@ -70,7 +70,14 @@ resource "aws_s3_bucket_policy" "deployer_infra_version_read" {
 
 data "external" "infra_version_marker" {
   count   = var.migrate ? 1 : 0
-  program = ["bash", "${path.module}/check-version-marker.sh", "cielara-infra-version-${lower(var.external_id)}", coalesce(var.region, "")]
+  program = [local.bash, "${path.module}/check-version-marker.sh", "cielara-infra-version-${lower(var.external_id)}", coalesce(var.region, "")]
+
+  lifecycle {
+    precondition {
+      condition     = !local.bash_missing
+      error_message = local.bash_missing_error
+    }
+  }
 }
 
 locals {

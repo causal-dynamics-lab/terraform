@@ -75,12 +75,19 @@ resource "azurerm_role_assignment" "deployer_infra_version_read" {
 data "external" "infra_version_marker" {
   count = var.migrate ? 1 : 0
   program = [
-    "bash", "${path.module}/check-version-marker.sh",
+    local.bash, "${path.module}/check-version-marker.sh",
     local.infra_version_rg_name,
     local.infra_version_account_name,
     var.migrate_sp_object_id,
     var.subscription_id,
   ]
+
+  lifecycle {
+    precondition {
+      condition     = !local.bash_missing
+      error_message = local.bash_missing_error
+    }
+  }
 }
 
 locals {

@@ -7,7 +7,14 @@
 # customers running the module themselves need no gcloud CLI on that path.
 data "external" "infra_version_marker" {
   count   = var.migrate ? 1 : 0
-  program = ["bash", "${path.module}/check-version-marker.sh", "cielara-infra-version-${var.project_id}"]
+  program = [local.bash, "${path.module}/check-version-marker.sh", "cielara-infra-version-${var.project_id}"]
+
+  lifecycle {
+    precondition {
+      condition     = !local.bash_missing
+      error_message = local.bash_missing_error
+    }
+  }
 }
 
 locals {
