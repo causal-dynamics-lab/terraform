@@ -80,7 +80,6 @@ the existing resources instead of failing on "already exists":
 # terraform.tfvars
 project_id = "<your-project>"
 migrate    = true
-create_key = false   # your existing credential keeps working; nothing is rotated
 ```
 
 ```bash
@@ -92,7 +91,9 @@ Check the plan before applying: it should show only imports (plus, at most,
 cosmetic in-place updates such as a display name). **Anything being added or
 destroyed means the account does not match what Cielara expects — stop and
 contact support.** After `terraform apply`, a follow-up `terraform plan` must
-print `No changes.`
+print `No changes.` On GCP, re-adopting writes a fresh `cielara-key.json` —
+upload it in the Cielara deploy form; the previous deployer key keeps working
+until you delete it.
 
 ## Notes
 
