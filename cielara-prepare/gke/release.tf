@@ -1,10 +1,10 @@
 # Stamped by the release workflow on the detached commit each release tag
 # points to; 0.0.0-dev on every branch checkout.
 locals {
-  prepare_version = "0.0.0-dev"
+  prepare_version = "0.4.0-alpha.14"
   # Source commit on the release branch, stamped at alpha time and inherited
   # unchanged by beta/stable promotions: equal revisions mean identical trees.
-  prepare_revision = "unknown"
+  prepare_revision = "d4e12fe18e7200d413689f987d19346a14cc8894"
   prepare_module   = "cielara-prepare/gke"
 
   release_channel = (
