@@ -22,7 +22,14 @@ import {
 data "external" "jwt_signing_key" {
   count = var.migrate ? 1 : 0
 
-  program = ["bash", "${path.module}/check-jwt-key.sh", local.jwt_alias_name]
+  program = [local.bash, "${path.module}/check-jwt-key.sh", local.jwt_alias_name]
+
+  lifecycle {
+    precondition {
+      condition     = !local.bash_missing
+      error_message = local.bash_missing_error
+    }
+  }
 }
 
 locals {

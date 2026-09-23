@@ -93,3 +93,9 @@ variable "jwt_key_auto_rotation_months" {
     error_message = "Must be a whole number of months; 0 disables automatic rotation."
   }
 }
+
+variable "bash_path" {
+  description = "Path of the bash that runs this module's CLI checks. Leave null to use Git Bash from its default install location on Windows and bash on PATH everywhere else."
+  type        = string
+  default     = null
+}

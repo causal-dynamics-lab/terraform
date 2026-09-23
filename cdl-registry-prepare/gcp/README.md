@@ -159,15 +159,13 @@ as good. Adding it after a local-state apply: run `terraform init
 ## Already prepared with the script, or lost your state?
 
 Adoption imports every existing prepare resource into state instead of
-recreating it — nothing changes in your project, your current
-`cielara-key.json` keeps working, and active Cielara deployments are
-untouched. Terraform only allows `import` blocks in the root module, so they
-cannot ship inside this module: the root `main.tf` that calls it carries
-them, keyed on this module's `probe_*` outputs, alongside `migrate = true`
-and `create_key = false`.
+recreating it, and active Cielara deployments are untouched. Terraform only
+allows `import` blocks in the root module, so they cannot ship inside this
+module: the root `main.tf` that calls it carries them, keyed on this module's
+`probe_*` outputs, alongside `migrate = true`.
 
 The deploy form's "already prepared" toggle serves the generated `main.tf`
-with all of it — the flags and the full import set. Use that file; writing
+with all of it — the flag and the full import set. Use that file; writing
 the call by hand means copying its import blocks too.
 
 ```bash
@@ -177,8 +175,21 @@ terraform plan      # must report: No changes.
 ```
 
 Verify the plan is empty before relying on the migrated state. The existing
-deployer key cannot be imported (Terraform does not support it); it simply
-stays as it is.
+deployer key cannot be imported (Terraform does not support it), so
+re-adopting writes a fresh `cielara-key.json` — upload it in the Cielara
+deploy form; the previous deployer key keeps working until you delete it.
+
+GCP allows at most 10 user-managed keys per service account and every
+re-adopt adds one, so delete keys Cielara no longer uses:
+
+```bash
+gcloud iam service-accounts keys list \
+  --iam-account cielara@<project>.iam.gserviceaccount.com --managed-by user
+gcloud iam service-accounts keys delete <KEY_ID> \
+  --iam-account cielara@<project>.iam.gserviceaccount.com
+```
+
+When the limit is reached the plan fails and prints these commands.
 
 Adopting a project prepared **before the JWT signing key existed**? Re-run
 the latest `prepare-gcp.sh` once first (idempotent) — the adoption imports
@@ -189,9 +200,9 @@ expect the keyring, key, app account, and signer role to exist.
 Two different keys live in this module, with different rotation stories — do not
 confuse them.
 
-- **Deployer service-account key** (`cielara-key.json`, the handback): this
-  module never rotates an existing one — `create_key = false` leaves your
-  current file valid. Rotate it through the Cielara credential UI, not here.
+- **Deployer service-account key** (`cielara-key.json`, the handback): a
+  normal apply never rotates it; a re-adopt (`migrate = true`) writes a fresh
+  one and leaves the previous key valid until you delete it.
 - **JWT signing key** (keyring `cielara-jwt`, key `jwt-signing`): rotation
   *and* revocation are yours, not Cielara's — the control plane holds no
   permission to create, disable, or destroy a version, which is the whole
@@ -250,7 +261,7 @@ gcloud auth login
 gcloud auth application-default login
 
 # Lost your state after an earlier run? Use the deploy form's "already
-# prepared" toggle — the downloaded file carries migrate = true, create_key = false, and the import blocks.
+# prepared" toggle — the downloaded file carries migrate = true and the import blocks.
 
 terraform init
 terraform plan

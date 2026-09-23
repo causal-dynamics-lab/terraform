@@ -118,13 +118,20 @@ data "external" "jwt_resources" {
   program = [
     # Literals and locals only: referencing the resources themselves would defer
     # this read past plan time, and the import ids below must be known at plan.
-    "bash", "${path.module}/check-jwt-resources.sh",
+    local.bash, "${path.module}/check-jwt-resources.sh",
     local.jwt_rg_name,
     local.jwt_vault_name,
     local.jwt_identity,
     data.azuread_client_config.current.object_id,
     var.cielara_client_id,
   ]
+
+  lifecycle {
+    precondition {
+      condition     = !local.bash_missing
+      error_message = local.bash_missing_error
+    }
+  }
 }
 
 locals {

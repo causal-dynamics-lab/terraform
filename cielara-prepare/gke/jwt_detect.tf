@@ -6,12 +6,19 @@ data "external" "jwt_resources" {
   count = var.migrate ? 1 : 0
 
   program = [
-    "bash",
+    local.bash,
     "${path.module}/check-jwt-resources.sh",
     var.project_id,
     var.region,
     local.jwt_signer_sa_email,
   ]
+
+  lifecycle {
+    precondition {
+      condition     = !local.bash_missing
+      error_message = local.bash_missing_error
+    }
+  }
 }
 
 locals {

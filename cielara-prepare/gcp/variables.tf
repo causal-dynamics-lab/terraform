@@ -9,7 +9,7 @@ variable "project_id" {
 }
 
 variable "migrate" {
-  description = "Re-adopt resources left by an earlier run of this module after the state was lost: the module checks whether the infra-version bucket exists and imports it instead of creating it. Pair with create_key = false to keep the existing deployer key."
+  description = "Re-adopt resources left by an earlier run of this module after the state was lost: the module checks whether the infra-version bucket exists and imports it instead of creating it."
   type        = bool
   default     = false
 }
@@ -55,4 +55,10 @@ variable "jwt_key_generation" {
     condition     = var.jwt_key_generation >= 1 && floor(var.jwt_key_generation) == var.jwt_key_generation
     error_message = "Must be a whole number >= 1; increment by one to rotate."
   }
+}
+
+variable "bash_path" {
+  description = "Path of the bash that runs this module's CLI checks. Leave null to use Git Bash from its default install location on Windows and bash on PATH everywhere else."
+  type        = string
+  default     = null
 }

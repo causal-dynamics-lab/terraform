@@ -136,8 +136,9 @@ resource "terraform_data" "cloudkms_ready" {
   triggers_replace = [join(",", local.apis)]
 
   provisioner "local-exec" {
-    command    = "bash '${path.module}/wait-cloudkms.sh' '${var.project_id}' '${var.region}'"
-    on_failure = continue
+    interpreter = [local.bash, "-c"]
+    command     = "bash '${path.module}/wait-cloudkms.sh' '${var.project_id}' '${var.region}'"
+    on_failure  = continue
   }
 
   depends_on = [google_project_service.apis]
@@ -290,10 +291,42 @@ resource "google_project_iam_member" "app_vm_secret_manager" {
   member  = "serviceAccount:${google_service_account.app.email}"
 }
 
+# Only read when migrate = true: a fresh prepare creates the service account in
+# this same apply, so it cannot already hold keys.
+data "external" "deployer_keys" {
+  count = var.migrate && var.create_key ? 1 : 0
+
+  program = [local.bash, "${path.module}/check-deployer-keys.sh", var.project_id, local.deployer_sa_email]
+
+  lifecycle {
+    precondition {
+      condition     = !local.bash_missing
+      error_message = local.bash_missing_error
+    }
+  }
+}
+
+locals {
+  deployer_key_count = tonumber(try(data.external.deployer_keys[0].result.count, "0"))
+}
+
 resource "google_service_account_key" "deployer" {
   count = var.create_key ? 1 : 0
 
   service_account_id = google_service_account.deployer.name
+
+  lifecycle {
+    precondition {
+      condition     = local.deployer_key_count < 10
+      error_message = <<-EOT
+        ${local.deployer_sa_email} already holds ${local.deployer_key_count} user-managed keys, the GCP limit per service account, so a new deployer key cannot be created.
+        List them:  gcloud iam service-accounts keys list --iam-account ${local.deployer_sa_email} --managed-by user
+        Delete every key except the one your running Cielara deployment uses:
+                    gcloud iam service-accounts keys delete <KEY_ID> --iam-account ${local.deployer_sa_email}
+        Then run terraform apply again.
+      EOT
+    }
+  }
 }
 
 # Upload this file in the Cielara deploy form. The key also lives in the

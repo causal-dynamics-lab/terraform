@@ -89,11 +89,10 @@ terraform -chdir=verify apply
 ```
 
 A 403 in the first minute or two is IAM propagation — retry. Re-running after
-a lost state? Set `migrate = true` (and `create_key = false` to keep the
-existing deployer key): the module checks whether the infra-version bucket
-already exists and imports it instead of creating it. The check runs `gcloud
-storage buckets describe` via `check-version-marker.sh`, so it needs the
-gcloud CLI authenticated — fresh prepares do not.
+a lost state? Set `migrate = true`: the module checks whether the
+infra-version bucket already exists and imports it instead of creating it.
+The check runs `gcloud storage buckets describe` via `check-version-marker.sh`,
+so it needs the gcloud CLI authenticated — fresh prepares do not.
 
 ## State is a credential
 
@@ -110,16 +109,14 @@ The Terraform state contains the deployer service account's private key.
 
 ## Already prepared with the script, or lost your state?
 
-Set `migrate = true` (with `create_key = false`) and apply: every existing
-prepare resource is imported into state instead of recreated — nothing
-changes in your project, your current `cielara-key.json` keeps working, and
-active Cielara deployments are untouched.
+Set `migrate = true` and apply: every existing prepare resource is imported
+into state instead of recreated, and active Cielara deployments are
+untouched.
 
 ```hcl
 # terraform.tfvars
 project_id = "my-gcp-project"
 migrate    = true
-create_key = false
 ```
 
 ```bash
@@ -129,8 +126,21 @@ terraform plan      # must report: No changes.
 ```
 
 Verify the plan is empty before relying on the migrated state. The existing
-deployer key cannot be imported (Terraform does not support it); it simply
-stays as it is.
+deployer key cannot be imported (Terraform does not support it), so
+re-adopting writes a fresh `cielara-key.json` — upload it in the Cielara
+deploy form; the previous deployer key keeps working until you delete it.
+
+GCP allows at most 10 user-managed keys per service account and every
+re-adopt adds one, so delete keys Cielara no longer uses:
+
+```bash
+gcloud iam service-accounts keys list \
+  --iam-account cielara@<project>.iam.gserviceaccount.com --managed-by user
+gcloud iam service-accounts keys delete <KEY_ID> \
+  --iam-account cielara@<project>.iam.gserviceaccount.com
+```
+
+When the limit is reached the plan fails and prints these commands.
 
 Adopting a project prepared **before the JWT signing key existed**? Re-run
 the latest `prepare-gcp.sh` once first (idempotent) — the migrate imports
@@ -141,9 +151,9 @@ expect the keyring, key, app account, and signer role to exist.
 Two different keys live in this module, with different rotation stories — do not
 confuse them.
 
-- **Deployer service-account key** (`cielara-key.json`, the handback): this
-  module never rotates an existing one — `create_key = false` leaves your
-  current file valid. Rotate it through the Cielara credential UI, not here.
+- **Deployer service-account key** (`cielara-key.json`, the handback): a
+  normal apply never rotates it; a re-adopt (`migrate = true`) writes a fresh
+  one and leaves the previous key valid until you delete it.
 - **JWT signing key** (keyring `cielara-jwt`, key `jwt-signing`): rotation
   *and* revocation are yours, not Cielara's — the control plane holds no
   permission to create, disable, or destroy a version, which is the whole
@@ -199,8 +209,7 @@ gcloud auth application-default login
 # (or copy terraform.tfvars.example and edit it).
 
 # Lost your state after an earlier run? Add:
-#   echo 'migrate = true'    >> terraform.tfvars
-#   echo 'create_key = false' >> terraform.tfvars
+#   echo 'migrate = true' >> terraform.tfvars
 
 terraform init
 terraform plan

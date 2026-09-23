@@ -19,7 +19,7 @@ variable "region" {
 }
 
 variable "migrate" {
-  description = "Import already-existing prepare resources (created by prepare-gke.sh, or by this module when the state was lost) instead of creating them. Pair with create_key = false to keep the existing deployer key."
+  description = "Import already-existing prepare resources (created by prepare-gke.sh, or by this module when the state was lost) instead of creating them."
   type        = bool
   default     = false
 }
@@ -55,4 +55,10 @@ variable "jwt_key_generation" {
     condition     = var.jwt_key_generation >= 1 && floor(var.jwt_key_generation) == var.jwt_key_generation
     error_message = "Must be a whole number >= 1; increment by one to rotate."
   }
+}
+
+variable "bash_path" {
+  description = "Path of the bash that runs this module's CLI checks. Leave null to use Git Bash from its default install location on Windows and bash on PATH everywhere else."
+  type        = string
+  default     = null
 }
