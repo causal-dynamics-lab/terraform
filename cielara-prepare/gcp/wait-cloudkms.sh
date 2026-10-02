@@ -12,9 +12,6 @@
 # of failing the apply.
 set -uo pipefail
 
-export MSYS_NO_PATHCONV=1
-export MSYS2_ARG_CONV_EXCL="*"
-
 PROJECT="$1"
 LOCATION="$2"
 TIMEOUT="${3:-600}"

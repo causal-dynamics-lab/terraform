@@ -5,9 +5,6 @@
 # an auth error never turns an import into a create that then fails.
 set -euo pipefail
 
-export MSYS_NO_PATHCONV=1
-export MSYS2_ARG_CONV_EXCL="*"
-
 PROJECT="$1"
 REGION="$2"
 SIGNER_SA="$3"

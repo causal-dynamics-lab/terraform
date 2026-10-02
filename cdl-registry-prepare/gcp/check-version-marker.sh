@@ -4,9 +4,6 @@
 # auth problem never silently reports the bucket as missing.
 set -euo pipefail
 
-export MSYS_NO_PATHCONV=1
-export MSYS2_ARG_CONV_EXCL="*"
-
 BUCKET="$1"
 
 if OUT=$(gcloud storage buckets describe "gs://${BUCKET}" --format="value(name)" 2>&1); then
