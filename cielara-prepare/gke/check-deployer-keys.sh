@@ -7,6 +7,12 @@ set -euo pipefail
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
 
+# The shell gcloud launcher needs MSYS path conversion to hand Windows Python
+# a real path to gcloud.py. Conversion is disabled above, so use gcloud.cmd.
+if command -v gcloud.cmd >/dev/null 2>&1; then
+	gcloud() { command gcloud.cmd "$@"; }
+fi
+
 PROJECT="$1"
 SA="$2"
 
