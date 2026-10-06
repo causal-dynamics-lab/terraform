@@ -65,3 +65,12 @@ variable "ha_nat" {
   type        = bool
   default     = false
 }
+
+#################################################
+# Destroy-time cleanup
+#################################################
+variable "bash_path" {
+  description = "Path of the bash that runs the destroy-time cleanup script. Leave null to use Git Bash from its default install location on Windows and bash on PATH everywhere else."
+  type        = string
+  default     = null
+}
