@@ -53,11 +53,17 @@ if ! command -v aws >/dev/null 2>&1; then
 	exit 0
 fi
 
-ERR=$(mktemp)
-trap 'rm -f "${ERR}"' EXIT
+# awsq ARGS...: runs aws, leaving its stdout and stderr together in AWS_OUT
+# (the data on success, the error on failure) and returning its exit code.
+# Output only ever goes through a pipe: the snap-packaged aws CLI fails, with
+# no output, when stdout or stderr is a regular file. aws.exe under Git Bash
+# prints CRLF, so carriage returns are stripped.
+AWS_OUT=""
+awsq() {
+	AWS_OUT=$(aws --region "${REGION}" "$@" 2>&1 | tr -d '\r')
+}
 
-# aws.exe under Git Bash prints CRLF; strip it so ids compare cleanly.
-awsq() { aws --region "${REGION}" "$@" 2>"${ERR}" | tr -d '\r'; }
+first_lines() { printf '%s\n' "${AWS_OUT}" | head -n3; }
 
 # Cluster verdicts are cached as "name=gone|keep" lines (bash 3.2 on macOS has
 # no associative arrays).
@@ -71,16 +77,16 @@ cluster_gone() {
 		[ "${cached}" = "gone" ]
 		return
 	fi
-	if aws --region "${REGION}" eks describe-cluster --name "${name}" >/dev/null 2>"${ERR}"; then
-		log "cluster ${name} still exists; leaving its resources alone"
+	if awsq eks describe-cluster --name "${name}" --query cluster.status --output text; then
+		log "cluster ${name} still exists (${AWS_OUT}); leaving its resources alone"
 		VERDICTS="${VERDICTS}${name}=keep"$'\n'
 		return 1
 	fi
-	if grep -q "ResourceNotFoundException" "${ERR}"; then
+	if [[ "${AWS_OUT}" == *ResourceNotFoundException* ]]; then
 		VERDICTS="${VERDICTS}${name}=gone"$'\n'
 		return 0
 	fi
-	log "cannot tell whether cluster ${name} still exists; leaving its resources alone: $(tr -d '\r' <"${ERR}" | head -n3)"
+	log "cannot tell whether cluster ${name} still exists; leaving its resources alone: $(first_lines)"
 	VERDICTS="${VERDICTS}${name}=keep"$'\n'
 	return 1
 }
@@ -88,71 +94,73 @@ cluster_gone() {
 LEFT=0
 
 # --- 1. Detached VPC CNI interfaces in this module's subnets -------------------
-if ! ENIS=$(awsq ec2 describe-network-interfaces \
+if ! awsq ec2 describe-network-interfaces \
 	--filters "Name=subnet-id,Values=${SUBNETS}" "Name=status,Values=available" "Name=tag:${CNI_TAG},Values=cdl-*" \
 	--query "NetworkInterfaces[].[NetworkInterfaceId, join('', TagSet[?Key=='${CNI_TAG}'].Value), Description]" \
-	--output text); then
-	log "could not list network interfaces: $(tr -d '\r' <"${ERR}" | head -n3)"
+	--output text; then
+	log "could not list network interfaces: $(first_lines)"
 	manual_steps
 	exit 0
 fi
+ENIS="${AWS_OUT}"
 
 while IFS=$'\t' read -r eni cluster desc; do
-	[ -n "${eni}" ] || continue
+	[[ "${eni}" == eni-* ]] || continue
 	case "${desc}" in
 	aws-K8S-*) ;;
 	*) continue ;;
 	esac
 	[[ "${cluster}" =~ ${CLUSTER_PATTERN} ]] || continue
 	cluster_gone "${cluster}" || continue
-	if awsq ec2 delete-network-interface --network-interface-id "${eni}" >/dev/null ||
-		grep -q "InvalidNetworkInterfaceID.NotFound" "${ERR}"; then
+	if awsq ec2 delete-network-interface --network-interface-id "${eni}" ||
+		[[ "${AWS_OUT}" == *InvalidNetworkInterfaceID.NotFound* ]]; then
 		log "deleted network interface ${eni} (cluster ${cluster})"
 	else
-		log "could not delete network interface ${eni}: $(tr -d '\r' <"${ERR}" | head -n3)"
+		log "could not delete network interface ${eni}: $(first_lines)"
 		LEFT=$((LEFT + 1))
 	fi
 done <<<"${ENIS}"
 
 # --- 2. EKS cluster security groups in this module's VPC -----------------------
-if ! SGS=$(awsq ec2 describe-security-groups \
+if ! awsq ec2 describe-security-groups \
 	--filters "Name=vpc-id,Values=${VPC_ID}" "Name=group-name,Values=eks-cluster-sg-cdl-*" \
 	--query "SecurityGroups[].[GroupId, GroupName]" \
-	--output text); then
-	log "could not list security groups: $(tr -d '\r' <"${ERR}" | head -n3)"
+	--output text; then
+	log "could not list security groups: $(first_lines)"
 	manual_steps
 	exit 0
 fi
+SGS="${AWS_OUT}"
 
 while IFS=$'\t' read -r sg name; do
-	[ -n "${sg}" ] || continue
+	[[ "${sg}" == sg-* ]] || continue
 	# eks-cluster-sg-<cluster>-<n>
 	cluster="${name#eks-cluster-sg-}"
 	cluster="${cluster%-*}"
 	[[ "${cluster}" =~ ${CLUSTER_PATTERN} ]] || continue
 	# EKS stamps the cluster's own tag on the group it created; a lookalike name
 	# without it is not ours.
-	owned=$(awsq ec2 describe-security-groups --group-ids "${sg}" \
+	awsq ec2 describe-security-groups --group-ids "${sg}" \
 		--filters "Name=tag:kubernetes.io/cluster/${cluster},Values=owned" \
-		--query "length(SecurityGroups)" --output text) || owned=0
-	[ "${owned}" = "1" ] || continue
+		--query "length(SecurityGroups)" --output text || continue
+	[ "${AWS_OUT}" = "1" ] || continue
 	cluster_gone "${cluster}" || continue
 
 	deleted=false
 	for attempt in $(seq 1 "${SG_ATTEMPTS}"); do
-		if awsq ec2 delete-security-group --group-id "${sg}" >/dev/null ||
-			grep -q "InvalidGroup.NotFound" "${ERR}"; then
+		if awsq ec2 delete-security-group --group-id "${sg}" ||
+			[[ "${AWS_OUT}" == *InvalidGroup.NotFound* ]]; then
 			deleted=true
 			break
 		fi
 		# Freshly deleted interfaces can hold the group for a few seconds.
-		grep -q "DependencyViolation" "${ERR}" || break
+		[[ "${AWS_OUT}" == *DependencyViolation* ]] || break
 		[ "${attempt}" -lt "${SG_ATTEMPTS}" ] && sleep "${RETRY_SLEEP}"
 	done
 	if ${deleted}; then
 		log "deleted security group ${sg} (${name})"
 	else
-		log "could not delete security group ${sg} (${name}): $(tr -d '\r' <"${ERR}" | head -n3)"
+		log "could not delete security group ${sg} (${name}): $(first_lines)"
 		LEFT=$((LEFT + 1))
 	fi
 done <<<"${SGS}"
