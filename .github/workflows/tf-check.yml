@@ -63,3 +63,25 @@ jobs:
       - name: test (offline, mock_provider)
         if: hashFiles(format('{0}/tests/*.tftest.hcl', matrix.module)) != ''
         run: terraform test
+
+  scripts:
+    # Offline tests for the modules' bash scripts (fake CLIs on PATH, no cloud
+    # credentials), plus shellcheck.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - cielara-enterprise-cloud-network/aws/vpc
+          - cdl-registry-networking/aws
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: shellcheck
+        run: shellcheck cleanup-cluster-leftovers.sh tests/cleanup-cluster-leftovers_test.sh
+
+      - name: cleanup-cluster-leftovers.sh
+        run: bash tests/cleanup-cluster-leftovers_test.sh

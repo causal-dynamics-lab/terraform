@@ -109,9 +109,65 @@ removed again on teardown. Nothing else on your VPC is modified.
 ## IAM
 
 You don't grant anything from this module — it needs no IAM permissions beyond
-EC2. The Cielara deployer role is granted everything it needs (including
+EC2 (plus `eks:DescribeCluster` for the destroy-time cleanup, see
+[Destroying the network](#destroying-the-network)). The Cielara deployer role is granted everything it needs (including
 describing and tagging these subnets) **once** by `prepare-eks.sh`, which an
 IAM administrator runs as a single setup step.
+
+## Destroying the network
+
+Destroy the network only after the Cielara Enterprise deployment in it has
+been torn down. Then:
+
+```bash
+terraform destroy
+```
+
+A deleted EKS cluster can leave two things in your VPC that are in no
+terraform state: detached VPC CNI network interfaces (`aws-K8S-<instance-id>`,
+tagged `cluster.k8s.amazonaws.com/name`), which block deleting the subnets, and
+the EKS cluster security group (`eks-cluster-sg-<cluster>-<n>`, tagged
+`kubernetes.io/cluster/<cluster> = owned`), which blocks deleting the VPC.
+`terraform destroy` removes them first, with the `aws` CLI and the same
+credentials terraform uses. It only touches resources that are:
+
+- inside this module's VPC and subnets,
+- tagged for a Cielara cluster (name starting `cdl-`), and
+- for a cluster EKS reports as no longer existing.
+
+Anything else, including resources of a Cielara cluster that is still running
+or whose state can't be read, is left alone.
+
+This step needs bash and the `aws` CLI (on Windows, Git Bash from its default
+install location, or set `bash_path`), plus `ec2:DescribeNetworkInterfaces`,
+`ec2:DeleteNetworkInterface`, `ec2:DescribeSecurityGroups`,
+`ec2:DeleteSecurityGroup` and `eks:DescribeCluster`. Without them it prints
+the manual steps and the destroy carries on as before.
+
+If you created the network with an older version of this module, bump
+`version`, run `terraform init -upgrade && terraform apply` (it adds one
+resource and changes nothing in AWS), then destroy.
+
+### Destroy fails with `DependencyViolation`
+
+If a subnet or the VPC still can't be deleted, find what is left. These
+commands list Cielara leftovers only; check that the cluster named in each tag
+no longer exists (`aws eks describe-cluster --name <cluster>` returns
+`ResourceNotFoundException`) before deleting:
+
+```bash
+aws ec2 describe-network-interfaces --region <region> \
+  --filters Name=vpc-id,Values=<vpc-id> Name=status,Values=available \
+            Name=tag-key,Values=cluster.k8s.amazonaws.com/name
+aws ec2 delete-network-interface --region <region> --network-interface-id <eni-id>
+
+aws ec2 describe-security-groups --region <region> \
+  --filters Name=vpc-id,Values=<vpc-id> Name=group-name,Values='eks-cluster-sg-cdl-*'
+aws ec2 delete-security-group --region <region> --group-id <sg-id>
+```
+
+Delete the network interfaces first, then the security group, then re-run
+`terraform destroy`.
 
 ## CIDR note
 
