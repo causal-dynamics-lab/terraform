@@ -32,6 +32,11 @@ mkdir -p "${FAKEBIN}"
 cat >"${FAKEBIN}/aws" <<'FAKE'
 #!/bin/bash
 echo "$*" >>"${CALLS}"
+# Like the snap-packaged aws CLI: fails, printing nothing, when stdout or
+# stderr is a regular file. The script must only ever hand it pipes.
+if [ -f /dev/fd/1 ] || [ -f /dev/fd/2 ]; then
+	exit 1
+fi
 args="$*"
 case "${args}" in
 *"ec2 describe-network-interfaces"*)
@@ -54,7 +59,7 @@ case "${args}" in
 	echo "An error occurred (ResourceNotFoundException) when calling the DescribeCluster operation: No cluster found" >&2
 	exit 254
 	;;
-*"eks describe-cluster --name cdl-1700000001-live"*) echo '{"cluster":{"status":"ACTIVE"}}' ;;
+*"eks describe-cluster --name cdl-1700000001-live"*) echo ACTIVE ;;
 *"eks describe-cluster"*)
 	echo "An error occurred (AccessDeniedException) when calling the DescribeCluster operation" >&2
 	exit 254
@@ -98,6 +103,10 @@ n=$(grep -c 'describe-cluster --name cdl-1700000000-gone' "${WORK}/calls")
 grep -q 'other-cluster' "${WORK}/calls" && fail "scoped cleanup: looked up a non-cdl cluster"
 grep -q 'deleted security group sg-gone' "${WORK}/stderr" || fail "scoped cleanup: no success line for sg-gone"
 grep -q 'DependencyViolation' "${WORK}/stderr" && fail "scoped cleanup: reported a retried DependencyViolation as a failure"
+grep -q 'cluster cdl-1700000002-denied still exists; leaving its resources alone: An error occurred (AccessDeniedException)' "${WORK}/stderr" ||
+	fail "scoped cleanup: the unreadable cluster's AWS error is not in the log"
+grep -q 'cluster cdl-1700000001-live still exists (ACTIVE)' "${WORK}/stderr" ||
+	fail "scoped cleanup: no 'still exists' line for the live cluster"
 
 # --- no aws CLI: prints the manual steps, exits 0 -------------------------------
 reset
