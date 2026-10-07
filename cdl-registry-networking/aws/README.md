@@ -124,3 +124,40 @@ VPC, so no service CIDR coordination is needed. If you also run the Azure
 module (default `10.2.0.0/20`) and ever plan to peer the two networks, give
 one of them a different range — the defaults collide by design only because
 each cloud is normally an island.
+
+## Teardown
+
+Order matters — AWS refuses to delete a VPC anything is still attached to, so
+each step needs the one before it gone:
+
+1. **The Cielara Enterprise deployment** — destroy it through Cielara. The
+   cluster, its load balancers, and the database all sit in these subnets.
+2. **The `remote-cluster-connectivity` submodule**, if you applied it — its
+   peering connections and routes hang off this VPC.
+3. **This module:**
+
+```bash
+terraform destroy   # in the root module that calls this one
+```
+
+It removes the VPC, its four subnets, the internet gateway, the NAT
+gateway(s) and their Elastic IPs, and the route tables. NAT gateways take a
+few minutes to delete; that is the slow part.
+
+A destroy that stops with `DependencyViolation` means something outside this
+module is still in the VPC — usually load balancers, network interfaces, or
+security groups the cluster created and a deployment teardown that did not
+finish left behind:
+
+```bash
+VPC=<vpc-id>   # the vpc_id in your handback
+aws elbv2 describe-load-balancers \
+  --query "LoadBalancers[?VpcId=='$VPC'].LoadBalancerArn" --output text
+aws ec2 describe-network-interfaces --filters Name=vpc-id,Values=$VPC \
+  --query 'NetworkInterfaces[].[NetworkInterfaceId,Status,Description]' --output table
+aws ec2 describe-security-groups --filters Name=vpc-id,Values=$VPC \
+  --query "SecurityGroups[?GroupName!='default'].[GroupId,GroupName]" --output table
+```
+
+Delete them — load balancers first, since their network interfaces go with
+them — and run the destroy again; it resumes where it stopped.

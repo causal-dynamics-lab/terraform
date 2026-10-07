@@ -103,3 +103,19 @@ group / VNet and never deletes network infrastructure you own.
 
 See [`azure/README.md`](azure/README.md) for prerequisites, run steps, and the
 handback shape.
+
+## Teardown
+
+Tear down in the reverse order you built:
+
+1. The Cielara Enterprise deployment — destroy it through Cielara. It runs
+   inside this network, and every cloud refuses to delete a subnet or VPC
+   something still uses.
+2. The connectivity module, if you applied one —
+   `azure/private-endpoints` or `aws/remote-cluster-connectivity`.
+3. The network module — `azure/vnet`, `aws/vpc`, or `gcp/vpc`.
+
+Steps 2 and 3 are a `terraform destroy` in the module directory, with the same
+variables as its apply. Each module's README has a **Teardown** section
+listing what it removes, what it leaves, and how to clear the leftovers that
+make a destroy stop.

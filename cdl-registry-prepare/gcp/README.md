@@ -240,9 +240,8 @@ confuse them.
   The re-rendered `main.tf` from the Cielara lifecycle panel carries the
   expected generation, so rotation is the same download-and-apply motion as
   an upgrade.
-- `terraform destroy` removes the service account and roles (breaking any
-  active Cielara deployment) but never disables the enabled APIs — they may be
-  shared with other workloads in the project.
+- Removing the prepare altogether: see [Teardown](#teardown) — a plain
+  `terraform destroy` stops at the signing key.
 - The JWT signing key refuses to destroy (`prevent_destroy`), and so does a
   `region` change — the keyring location is immutable, so terraform would
   replace the key, scheduling every version for destruction and stopping a
@@ -250,6 +249,84 @@ confuse them.
   Cielara deployment first, delete the `lifecycle` blocks from
   `google_kms_key_ring.jwt` and `google_kms_crypto_key.jwt_signing` for one
   apply, and put them back.
+
+## Teardown
+
+Only once the Cielara deployment in this project is gone — destroy it through
+Cielara first. The deployment's own teardown runs as the deployer service
+account, so removing the prepare first leaves the VM, database, and network
+for you to delete by hand.
+
+A plain `terraform destroy` stops at plan time with `Instance cannot be
+destroyed` on `google_kms_key_ring.jwt` — the `prevent_destroy` guard above.
+GCP cannot delete keyrings or keys anyway, so take the signing key out of
+state, leaving it in place, and destroy the rest:
+
+```bash
+# Same main.tf as the apply. Set migrate = false if it is still true:
+# a destroy needs none of the gcloud probes it enables.
+terraform state rm \
+  module.cielara_prepare.google_kms_key_ring.jwt \
+  module.cielara_prepare.google_kms_crypto_key.jwt_signing \
+  module.cielara_prepare.google_kms_crypto_key_version.jwt_signing
+terraform destroy
+```
+
+The destroy plan must list no KMS keyring, key, or key version. It removes:
+
+- the two service accounts — `cielara` and `cielara-app` — with every key the
+  deployer account holds, including keys from earlier re-adopts that were
+  never in state;
+- the two custom roles and every IAM binding the module made;
+- the infra-version bucket and its `version.json`;
+- the local `cielara-key.json`.
+
+It leaves behind:
+
+- **The enabled APIs** — never disabled, they may serve other workloads in
+  the project.
+- **The `cielara-jwt` keyring and `jwt-signing` key**, every version still
+  enabled. Nothing can sign with it any more (`cielara-app` is gone), but the
+  key material survives until you destroy it:
+
+  ```bash
+  gcloud kms keys versions list \
+    --keyring cielara-jwt --key jwt-signing --location <region>
+  gcloud kms keys versions destroy <N> \
+    --keyring cielara-jwt --key jwt-signing --location <region>
+  ```
+
+  A destroyed version is only scheduled — restorable with `gcloud kms keys
+  versions restore` until the key's destruction window (30 days by default)
+  lapses. The keyring and key themselves stay forever as empty shells; they
+  cost nothing.
+
+GCP keeps deleted service accounts restorable for 30 days and deleted custom
+roles for 7 (`gcloud iam service-accounts undelete`, `gcloud iam roles
+undelete`) if you tore down the wrong project.
+
+**Preparing the same project again later.** The fresh apply recreates the
+service accounts and, inside the 7-day window, undeletes the custom roles on
+its own. Between day 7 and day 37 GCP still reserves the role IDs, so a
+re-prepare in that window fails until it passes. The leftover keyring makes
+its create fail `already exists`, and the generated adoption `main.tf` does
+not help — it imports the service accounts, which no longer exist. Import
+the signing key by hand instead, then apply:
+
+```bash
+terraform import module.cielara_prepare.google_kms_key_ring.jwt \
+  projects/<project>/locations/<region>/keyRings/cielara-jwt
+terraform import module.cielara_prepare.google_kms_crypto_key.jwt_signing \
+  projects/<project>/locations/<region>/keyRings/cielara-jwt/cryptoKeys/jwt-signing
+terraform apply
+```
+
+Same `region` as before (the keyring cannot move), and leave
+`jwt_key_generation` at `1`: versions from the earlier prepare carry over,
+and the VM signs with the highest enabled one. Versions you destroyed above
+stay unusable, so if none is left enabled, run `gcloud kms keys versions
+create --keyring cielara-jwt --key jwt-signing --location <region>` before
+deploying.
 
 ## TLDR / CLI
 

@@ -109,3 +109,23 @@ Once approved, the remote API FQDN resolving from the VNet to the endpoint IP
 Append another entry to `remote_clusters` in the module block and re-apply.
 The map key is the `for_each` key — keep existing keys stable (renaming a key
 destroys and recreates that endpoint).
+
+## Teardown
+
+Destroy this module after the Cielara Enterprise deployment that uses it —
+removing the endpoints first cuts the deployment off from the remote
+clusters — and before the `vnet` root module, whose `pe-subnet` the endpoints
+occupy (Azure refuses to delete a subnet with endpoints in it).
+
+```bash
+# Destroying the whole root module tears this one down first on its own.
+# To remove only this module, delete its module block and apply, or:
+terraform destroy -target=module.private_endpoints
+```
+
+It removes every private endpoint, `privatelink.<region>.azmk8s.io` zone, VNet
+link, and A record it created. The remote clusters are untouched; their
+owners see the private endpoint connection go away on their side.
+
+Dropping a single remote cluster is not a teardown: remove its entry from
+`remote_clusters` and apply.

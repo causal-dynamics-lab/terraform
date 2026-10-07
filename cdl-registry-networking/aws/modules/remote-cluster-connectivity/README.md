@@ -123,3 +123,26 @@ destroys and recreates that peering connection and DNS zone).
   (or supply updated `api_endpoint_ips`) if API calls start failing or timing
   out. Phase 2 may add Route 53 Resolver outbound forwarding to the remote VPC
   for live DNS instead of pinned A records.
+
+## Teardown
+
+Destroy this module after the Cielara Enterprise deployment that uses it —
+removing the peering first cuts the deployment off from the remote clusters —
+and before the `vpc` root module, whose VPC and route tables it attaches to.
+
+```bash
+# Destroying the whole root module tears this one down first on its own.
+# To remove only this module, delete its module block and apply, or:
+terraform destroy -target=module.remote_cluster_connectivity
+```
+
+It removes every peering connection, the routes it added (on the Cielara
+side, and on the remote side for clusters with `remote_route_table_ids`), and
+the Route 53 private zones and records. The remote clusters and VPCs are
+untouched. Anything the remote owner set up by hand stays and is now theirs
+to remove: the control-plane security group rule admitting the Cielara
+`vpc_cidr`, and out-of-band return routes, which turn into blackhole routes
+once the peering connection is gone.
+
+Dropping a single remote cluster is not a teardown: remove its entry from
+`remote_clusters` and apply.

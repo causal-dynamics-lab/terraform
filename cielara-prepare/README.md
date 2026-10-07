@@ -101,7 +101,11 @@ until you delete it.
   target project/account (each module's README lists specifics).
 - Applies are idempotent — re-running is always safe.
 - Never run `terraform destroy` against a live Cielara deployment; the state
-  owns the real identities the deployment runs as.
+  owns the real identities the deployment runs as. Removing the prepare once
+  the deployment is gone is covered in each module's README under
+  **Teardown** — on `gke` and `gcp` a plain `terraform destroy` stops at the
+  JWT signing key, which GCP cannot delete, and on `aks` the Key Vault stays
+  soft-deleted for 90 days.
 
 See each module's README for the exact resources created and
 provider-specific details.
