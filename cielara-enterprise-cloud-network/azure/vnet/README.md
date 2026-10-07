@@ -86,3 +86,37 @@ depend on this exact layout. The `pe-subnet` (`10.2.8.0/26` for the default
 sibling `private-endpoints` module. The `apiserver-subnet` (`10.2.1.96/27` for
 the default `/20`) is delegated to AKS for API Server VNet Integration — Azure
 requires at least a `/28` and reserves 9+ IPs in it.
+
+## Teardown
+
+Order matters — Azure refuses to delete a subnet anything is still attached
+to, so each step needs the one before it gone:
+
+1. **The Cielara Enterprise deployment** — destroy it through Cielara. The
+   cluster, Postgres server, and Application Gateway all sit in these
+   subnets.
+2. **The `private-endpoints` module**, if you applied it — its endpoints
+   occupy `pe-subnet`.
+3. **This module:**
+
+```bash
+terraform destroy   # same terraform.tfvars (or -var flags) as the apply
+```
+
+It removes the VNet, its six subnets, the NAT gateway, and its public IP. The
+resource group stays — the module only adopted it — with everything else you
+keep in it.
+
+A destroy that stops with `InUseSubnetCannotBeDeleted` means something outside
+this module still holds the named subnet, usually left over from a deployment
+teardown that did not finish:
+
+```bash
+az network vnet subnet show -g <resource-group> --vnet-name <vnet> -n <subnet> \
+  --query '{nics: ipConfigurations[].id, endpoints: privateEndpoints[].id, delegations: serviceAssociationLinks[].link}'
+```
+
+Delete what it lists and run the destroy again — it resumes where it
+stopped. A `postgres-subnet` or `apiserver-subnet` delegation can outlive its
+Postgres server or cluster by several minutes; if the server or cluster is
+already gone, wait and retry.

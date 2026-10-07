@@ -83,3 +83,34 @@ deploy starts):
 - Address space disjoint from `172.16.0.0/28` (the GKE master range) and from
   whatever Cloud SQL PSA range the deploy will reserve (default
   `10.96.0.0/16`).
+
+## Teardown
+
+Destroy the Cielara Enterprise deployment through Cielara first — the
+cluster, Cloud SQL instance, and the Private Service Access range the deploy
+added all live in this VPC, and GCP refuses to delete a network anything
+still uses. Then:
+
+```bash
+terraform destroy   # same terraform.tfvars (or -var flags) as the apply
+```
+
+It removes Cloud NAT, the Cloud Router, the static NAT IP, the subnet (with
+its secondary ranges), and the VPC. The Compute Engine API stays enabled — it
+may serve other workloads in the project.
+
+A destroy that stops with `The network resource ... is already being used by
+...` names what is left over, usually from a deployment teardown that did not
+finish — firewall rules GKE created, or the Private Service Access peering
+and its reserved range:
+
+```bash
+NET=<name_prefix>-vpc
+gcloud compute firewall-rules list --filter="network:$NET"
+gcloud services vpc-peerings list --network="$NET"
+gcloud compute addresses list --global --filter="purpose=VPC_PEERING"
+```
+
+Delete them and run the destroy again; it resumes where it stopped. Google
+can refuse to remove the Private Service Access peering for several days
+after the Cloud SQL instance is deleted — if it does, retry later.
