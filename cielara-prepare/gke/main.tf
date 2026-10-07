@@ -12,7 +12,6 @@ locals {
   node_sa_email       = "${local.node_sa_id}@${var.project_id}.iam.gserviceaccount.com"
   app_sa_email        = "${local.app_sa_id}@${var.project_id}.iam.gserviceaccount.com"
   jwt_signer_sa_email = "${local.jwt_signer_sa_id}@${var.project_id}.iam.gserviceaccount.com"
-  metrics_sa_email    = "${local.metrics_sa_id}@${var.project_id}.iam.gserviceaccount.com"
 
   apis = [
     "container.googleapis.com",
@@ -305,7 +304,8 @@ resource "google_kms_crypto_key_version" "jwt_signing" {
   crypto_key = google_kms_crypto_key.jwt_signing.id
 }
 
-# Cloud SQL metrics reader (core plan 0129). The data plane's in-cluster Alloy
+# Cloud SQL metrics reader (xfabric-sec/core#7050, plan
+# docs/plans/0129-gke-cloudsql-alerts.md). The data plane's in-cluster Alloy
 # assumes this SA via Workload Identity to read the tenant's Cloud SQL CPU,
 # disk and read-ops series from Cloud Monitoring and forward them to the
 # per-tenant alerts. Read-only: monitoring.viewer and nothing else. As with the
