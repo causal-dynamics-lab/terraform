@@ -6,6 +6,7 @@ locals {
   node_sa_id       = "gke-node-sa"
   app_sa_id        = "cielara-app"
   jwt_signer_sa_id = "cielara-jwt-signer"
+  metrics_sa_id    = "cielara-metrics"
 
   deployer_sa_email   = "${local.deployer_sa_id}@${var.project_id}.iam.gserviceaccount.com"
   node_sa_email       = "${local.node_sa_id}@${var.project_id}.iam.gserviceaccount.com"
@@ -301,6 +302,28 @@ resource "google_kms_crypto_key" "jwt_signing" {
 resource "google_kms_crypto_key_version" "jwt_signing" {
   for_each   = toset([for g in range(2, var.jwt_key_generation + 1) : tostring(g)])
   crypto_key = google_kms_crypto_key.jwt_signing.id
+}
+
+# Cloud SQL metrics reader (xfabric-sec/core#7050, plan
+# docs/plans/0129-gke-cloudsql-alerts.md). The data plane's in-cluster Alloy
+# assumes this SA via Workload Identity to read the tenant's Cloud SQL CPU,
+# disk and read-ops series from Cloud Monitoring and forward them to the
+# per-tenant alerts. Read-only: monitoring.viewer and nothing else. As with the
+# JWT signer, the Cielara deployment terraform owns the WI binding, created
+# after the cluster's pool exists, and the control plane only renders it once
+# it has confirmed this SA is present.
+resource "google_service_account" "metrics" {
+  account_id   = local.metrics_sa_id
+  display_name = "Cielara Cloud SQL Metrics Reader"
+  project      = var.project_id
+
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_project_iam_member" "metrics_monitoring_viewer" {
+  project = var.project_id
+  role    = "roles/monitoring.viewer"
+  member  = "serviceAccount:${google_service_account.metrics.email}"
 }
 
 resource "google_project_iam_custom_role" "app_jwt_signer" {
