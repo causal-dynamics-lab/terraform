@@ -212,17 +212,34 @@ lacks the tag the signer is authorised against, so signing stops instead.
 Sessions issued before a rotation need a fresh login, a few minutes later, once
 every verifier's key cache has turned over. Nothing else is affected.
 
-## Revoking access
+## Teardown
+
+Only once the Cielara deployment in this account is gone — destroy it through
+Cielara first. The deployment's own teardown runs as the deployer role, so
+removing the prepare first cuts Cielara off mid-account and leaves the
+cluster, database, and load balancers for you to delete by hand.
 
 ```bash
+# Same main.tf as the apply. Set migrate = false if it is still true:
+# a destroy needs none of the AWS CLI probes it enables.
 terraform destroy
 ```
 
-removes the role and its policy; the Cielara control plane immediately
-loses access to the account. Only do this for deployments you have already
-destroyed through Cielara. The JWT signing key is not deleted instantly: destroy
-schedules its deletion with AWS KMS's mandatory waiting period, so the alias and
-key linger until it elapses.
+The Cielara control plane loses access the moment the role is gone. The
+destroy removes:
+
+- the `cielara_eks_deployer_<cielara-client-id>` role and its inline policy;
+- the infra-version bucket and its `version.json`;
+- the `alias/cielara-jwt-signing-<cielara-client-id>` alias, at once;
+- every JWT signing key generation — **scheduled** for deletion, not deleted:
+  AWS KMS holds each key for its 30-day waiting period, unable to sign, before
+  deleting it for good (`aws kms cancel-key-deletion` stops it inside the
+  window);
+- the local `cielara-creds.json`.
+
+Preparing the same account for the same Cielara client id later is a plain
+fresh apply of the deploy form's regular `main.tf`, not the "already
+prepared" one: every name is free again, and a new signing key is created.
 
 ## TLDR / CLI
 

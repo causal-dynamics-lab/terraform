@@ -223,6 +223,52 @@ UI — do not rotate by re-running this module: the control plane holds the
 current secret, and replacing it out-of-band breaks the deployment's stored
 credential.
 
+## Teardown
+
+Only once the Cielara deployment in this subscription is gone — destroy it
+through Cielara first. The deployment's own teardown runs as the deployer
+service principal, so removing the prepare first cuts Cielara off and leaves
+the cluster, database, and gateway for you to delete by hand.
+
+```bash
+# Same main.tf (and migrate.auto.tfvars, if any) as the apply, but set
+# migrate = false: a destroy needs none of the az CLI probes it enables.
+terraform destroy
+```
+
+Run it as the identity that applied the module, or one holding **Key Vault
+Crypto Officer** on the vault: deleting the signing key is a data-plane call,
+and the module granted that role to the applier only.
+
+The Cielara control plane loses access the moment the service principal is
+gone. The destroy removes:
+
+- the `cielara_aks_deployer_<cielara-client-id>` application, service
+  principal, and client secret, plus every role assignment the module made;
+- the `cielara-infra-version-<cielara-client-id>` resource group with its
+  storage account and `version.json`;
+- the `cielara-jwt-signer` managed identity — and with it the federated
+  credentials the deployment bound to it;
+- the `cielarajwt<hash>` Key Vault and its `jwt-signing` key, and then the
+  `cielara-jwt-<cielara-client-id>` resource group;
+- the local `cielara-creds.json`.
+
+Two of those are soft deletes, not gone yet:
+
+- **The Key Vault and key** — purge protection keeps both soft-deleted for
+  90 days, and nobody can purge them sooner, you included. Azure purges them
+  on schedule. List with `az keyvault list-deleted`.
+- **The Entra application** — restorable from Entra ID's deleted
+  applications for 30 days.
+
+Preparing the same subscription for the same Cielara client id later is a
+plain fresh apply of the deploy form's regular `main.tf` — no discovery
+step. Inside the 90 days the vault name is still taken, and the azurerm
+provider recovers the soft-deleted vault and key (old versions included)
+instead of failing; keep `location` unchanged, since a recovered vault cannot
+move. The new application gets a new client id, so upload the new
+`cielara-creds.json` in full.
+
 ## TLDR / CLI
 
 ```bash
