@@ -18,6 +18,11 @@ output "jwt_signer_service_account_email" {
   value       = google_service_account.jwt_signer.email
 }
 
+output "metrics_service_account_email" {
+  description = "Service account the data plane's Alloy assumes (Workload Identity) to read Cloud SQL metrics from Cloud Monitoring"
+  value       = google_service_account.metrics.email
+}
+
 output "jwt_signing_key_id" {
   description = "Cloud KMS key the data plane signs its JWTs with"
   value       = google_kms_crypto_key.jwt_signing.id
