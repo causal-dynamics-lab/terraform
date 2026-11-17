@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke test. On the VM, two levels (docs/plans/teammind-backup-recovery.md, "Health and readiness"):
+# Smoke test. On the VM, two levels (olyvr-teammind/docs/teammind-backup-recovery.md, "Health and readiness"):
 #
 #   teammind-check --health   the application: the backend, the memory API on PostgreSQL with its model, the gate
 #                             serving and refusing a request without a token. What a restore's rollback decides on.
@@ -18,10 +18,8 @@ if [ $# -eq 0 ] || [ "$1" = --health ]; then
   SESSION=$(sudo cat /etc/olyvr/session-token)
   s=$(curl -fsS -m 10 -H "Authorization: Bearer $SESSION" http://127.0.0.1:9420/api/memory-server) \
     || { echo "UNHEALTHY: the backend doesn't answer on 127.0.0.1:9420"; exit 1; }
-  # Which bundle the server runs, when it runs one (teammind-stage.sh).
-  if [ "$health_only" = 0 ] && sudo grep -q "^ARTIFACTS='.\+'" /etc/olyvr/bootstrap.env; then
-    echo "bundle: $(sudo cat /opt/olyvr/bundle/BUNDLE 2>/dev/null | tr '\n' ' ')"
-  fi
+  # Which bundle the server runs (teammind-stage.sh).
+  [ "$health_only" = 1 ] || echo "bundle: $(sudo cat /opt/olyvr/bundle/BUNDLE 2>/dev/null | tr '\n' ' ')"
   [ "$health_only" = 1 ] || echo "$s" | jq '{running, installed, storage, storage_backend, storage_error, llm, shared, shared_port, domain, gate, start_error}'
   [ "$(echo "$s" | jq -r '[.running, .storage_backend, .llm, .gate.running] | @tsv')" = "true	postgres	true	true" ] \
     || { echo "UNHEALTHY: $(echo "$s" | jq -c '{running, storage_backend, llm, gate: .gate.running, storage_error, start_error}')"; exit 1; }

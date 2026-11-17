@@ -4,7 +4,7 @@
 #
 #   teammind-backup [--verify]
 #
-# A set (docs/plans/teammind-backup-recovery.md, "What one backup holds") is the database dump and the portable state
+# A set (olyvr-teammind/docs/teammind-backup-recovery.md, "What one backup holds") is the database dump and the portable state
 # (Olyvr's store with the token rows, the vault key, the reader token, the memory server's settings and its
 # self-signed pair), each encrypted with age to BACKUP_AGE_RECIPIENTS, and a manifest, encrypted too and signed with
 # this host's key (/etc/olyvr/backup-sign). Host configuration (bootstrap.env, pg.env, server.env, TLS) is not in it:
@@ -175,15 +175,17 @@ age -e "${age_args[@]}" -o "$out/state.tar.zst.age" "$work/state.tar.zst"
 IFS='|' read -r pg_version vector_version < <(runuser -u postgres -- psql -X -At -F '|' -d teammind \
   -c "SELECT current_setting('server_version'), (SELECT extversion FROM pg_extension WHERE extname = 'vector')")
 jq -R 'split("|") | {(.[0]): (.[1] | tonumber)}' "$work/counts" | jq -s 'add // {}' > "$work/counts.json"
+# The Olyvr build this host runs, from the bundle it was set up from (teammind-stage.sh); a restore compares it.
+olyvr_version=$(sed -n 's/^olyvr_version=//p' /opt/olyvr/bundle/BUNDLE 2>/dev/null || true)
 jq -n --arg set "$set_name" --arg created "$(date -u +%FT%TZ)" --arg host "$host" --arg machine "$(cat /etc/machine-id)" \
-  --arg olyvr "$OLYVR_SOURCE_COMMIT" --arg memory "$MEMORY_SOURCE_COMMIT" --arg release "$MEMORY_RELEASE" \
+  --arg olyvr "${olyvr_version:-unknown}" --arg release "$MEMORY_RELEASE" \
   --arg pg "$pg_version" --arg vector "$vector_version" --slurpfile counts "$work/counts.json" \
   --arg db_plain "$(sha "$work/db.dump")" --arg db_size "$(stat -c %s "$work/db.dump")" --arg db_age "$(sha "$out/db.dump.age")" \
   --arg st_plain "$(sha "$work/state.tar.zst")" --arg st_size "$(stat -c %s "$work/state.tar.zst")" --arg st_age "$(sha "$out/state.tar.zst.age")" \
   --arg cloud "$CLOUD" --arg domain "${DOMAIN:-}" --arg ip "${PUBLIC_IP:-}" --arg port "${GATE_PORT:-}" --arg tls "${TLS_MODE:-}" \
   --arg targets "${BACKUP_TARGETS:-}" \
   '{format: 1, set: $set, created: $created, host: $host, machine_id: $machine,
-    versions: {olyvr_commit: $olyvr, memory_commit: $memory, memory_release: $release, postgresql: $pg, pgvector: $vector},
+    versions: {olyvr_version: $olyvr, memory_release: $release, postgresql: $pg, pgvector: $vector},
     files: {"db.dump": {sha256: $db_plain, size: ($db_size | tonumber), age_sha256: $db_age},
             "state.tar.zst": {sha256: $st_plain, size: ($st_size | tonumber), age_sha256: $st_age}},
     counts: $counts[0],

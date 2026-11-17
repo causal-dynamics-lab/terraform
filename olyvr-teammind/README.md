@@ -33,7 +33,9 @@ Backups are planned in [docs/teammind-backup-recovery.md](docs/teammind-backup-r
 Every root keeps its state in its cloud's own storage: a GCS bucket (`gcp`), an S3 bucket with `use_lockfile`
 (`aws`, Terraform 1.11 or newer), an Azure Storage container read with your Entra ID login (`azure`). Make the
 bucket once, versioned and private, copy `backend.hcl.example` to `backend.hcl` (git-ignored) in each root, fill
-it in, and initialise with it:
+it in, and initialise with it. Give every server its own key (the server's `name` in it, as the example does) and
+every environment's backups root its own: two servers on one key share one state, so applying the second plans to
+replace the first's VM.
 
 ```bash
 cp backend.hcl.example backend.hcl && $EDITOR backend.hcl
@@ -92,7 +94,7 @@ olyvr-teammind/operator/teammind-stage.sh --olyvr-run <id> --memory-run <id> s3:
 
 The bootstrap checks `SHA256SUMS` against `artifacts_sha256` and every file against `SHA256SUMS` before unpacking
 it, refuses a bundle whose memory release isn't `memory_release`, unpacks the AppImage's `resources/backend` and
-`resources/workspace` to `/opt/olyvr/app` (the service runs `olyvr-backend` through a drop-in), and gives the
+`resources/workspace` to `/opt/olyvr/app` (`olyvr.service` runs its `olyvr-backend`), and gives the
 memory API the archive as its source. `teammind-check` prints the bundle a server runs. On AWS an `s3://` folder
 is read with the VM's identity, which gets `s3:GetObject` on that folder only. On Google Cloud a `gs://` folder is
 too, with `roles/storage.objectViewer` conditioned on that folder; the bucket needs uniform bucket-level access, and

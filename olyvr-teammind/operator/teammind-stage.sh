@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Stages a TeamMind bundle: the folder the `artifacts` variable names, so a server installs Olyvr and the memory API
-# from built files instead of fetching the source with a GitHub token (bootstrap.sh, step 3).
+# Stages a TeamMind bundle: the folder the `artifacts` variable names, the only way a server gets Olyvr and the memory
+# API (bootstrap.sh, step 3); servers never fetch source. BUNDLE's tools_commit is this repo's commit (the backup
+# tools come from here), not Olyvr's.
 #
 #   teammind-stage.sh --olyvr-run <id> --memory-run <id> s3://bucket/teammind
 #   teammind-stage.sh --olyvr-run <id> --memory-run <id> gs://bucket/teammind
@@ -19,7 +20,7 @@
 # A DEST without a scheme is a local folder, for serving over https:// some other way.
 set -euo pipefail
 
-usage() { sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
+usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2; }
 olyvr_run=""; memory_run=""; appimage=""; memory=""; track=""; repo=xfabric-sec/olyvr
 while [ $# -gt 1 ]; do
   case $1 in

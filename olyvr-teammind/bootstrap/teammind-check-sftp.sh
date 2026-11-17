@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Proves an SFTP backup destination is write-only before it is used, and again after an OpenSSH upgrade on it
-# (docs/plans/teammind-backup-recovery.md, "An SFTP destination is an SFTP server"):
+# (olyvr-teammind/docs/teammind-backup-recovery.md, "An SFTP destination is an SFTP server"):
 #
 #   sudo teammind-check-sftp <remote>:<folder>      # a target as BACKUP_TARGETS names it
 #

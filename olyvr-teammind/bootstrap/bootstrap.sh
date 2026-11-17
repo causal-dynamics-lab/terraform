@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Sets up one TeamMind server on a bare Ubuntu 24.04 VM: PostgreSQL 16 with pgvector, Olyvr headless (from a
 # staged bundle: ARTIFACTS, below), the memory server on PostgreSQL behind its gate, TLS, the reader token, backups (encrypted sets to
-# BACKUP_TARGETS, docs/plans/teammind-backup-recovery.md).
+# BACKUP_TARGETS, olyvr-teammind/docs/teammind-backup-recovery.md).
 # Run by cloud-init as root with /etc/olyvr/bootstrap.env written first (olyvr-teammind/<cloud>), or by hand:
 #
 #   sudo /opt/olyvr/bootstrap.sh
 #
 # Every step keeps a marker in /var/lib/olyvr/bootstrap/<step>.done holding a digest of the inputs it used, so a
-# rerun redoes only the steps whose inputs changed (docs/plans/teammind-terraform-setup.md, "Rerun"). Ends by
+# rerun redoes only the steps whose inputs changed (olyvr-teammind/docs/teammind-terraform-setup.md, "Rerun"). Ends by
 # writing /var/lib/olyvr/teammind-ready (the URL inside) or /var/lib/olyvr/teammind-failed; the log is
 # /var/log/teammind-bootstrap.log.
 set -euo pipefail
@@ -22,7 +22,7 @@ APP=$OLYVR_HOME/app                     # Olyvr unpacked from the bundle's AppIm
 TOOLS=$OLYVR_HOME/tools                 # the bundle's backup tools
 BUNDLE=$OLYVR_HOME/bundle               # the bundle's SHA256SUMS
 MEMORY_SRC=$OLYVR_HOME/reasonara-memory # the memory API: the bundle's compiled archive
-DROPIN=/etc/systemd/system/olyvr.service.d/appimage.conf
+DROPIN=/etc/systemd/system/olyvr.service.d/appimage.conf  # older bootstraps' ExecStart override; removed
 STATE=/var/lib/olyvr/state
 OLYVR_ENV=/etc/olyvr/olyvr.env
 PG_ENV=/etc/olyvr/pg.env
@@ -152,11 +152,11 @@ wait_for() { # wait_for SECONDS "description" command...
 
 # ---------- 1. packages ----------
 step packages
-if ! is_done packages 2; then
+if ! is_done packages 3; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -q
-  apt-get install -y -q postgresql-16 postgresql-16-pgvector certbot jq curl git dnsutils unzip logrotate gpg \
-    age sqlite3 zstd rsync
+  apt-get install -y -q postgresql-16 postgresql-16-pgvector certbot jq curl dnsutils unzip logrotate gpg \
+    age sqlite3 zstd rsync python3-cryptography
   if [ "$CLOUD" = aws ] && ! command -v aws >/dev/null; then
     # The one CLI the bootstrap needs: SigV4 for Secrets Manager and S3 is not worth doing by hand.
     tmp=$(mktemp -d)
@@ -183,7 +183,7 @@ if ! is_done packages 2; then
     install -m 755 "$tmp"/uv-x86_64-unknown-linux-gnu/uv /usr/local/bin/uv
     rm -rf "$tmp"
   fi
-  mark packages 2
+  mark packages 3
 fi
 if ! is_done rclone "$(digest "$RCLONE_VERSION" "$RCLONE_SHA256")"; then
   tmp=$(mktemp -d)
@@ -279,10 +279,8 @@ if ! is_done memory-source "$MEMORY_DIGEST"; then
   chown -R olyvr:olyvr "$MEMORY_SRC"
   mark memory-source "$MEMORY_DIGEST"
 fi
-# The service runs the unpacked backend.
-mkdir -p "$(dirname "$DROPIN")"
-printf '[Service]\nEnvironment=PYTHONPATH=\nExecStart=\nExecStart=%s --port %s --state %s\n' \
-  "$APP/backend/olyvr-backend" "$BACKEND_PORT" "$STATE" > "$DROPIN"
+# olyvr.service runs the unpacked backend itself; an older bootstrap's override of it goes.
+rm -f "$DROPIN"; rmdir --ignore-fail-on-non-empty "$(dirname "$DROPIN")" 2>/dev/null || true
 RESOURCE_ROOT=$APP/workspace
 
 # ---------- 4. Olyvr headless: env file, storage, service ----------

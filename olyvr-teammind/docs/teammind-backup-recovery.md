@@ -5,7 +5,7 @@
 > staged bundle. Paths and details below are as they were.
 
 **Status:** Approved 2026-10-30; Phases 1 and 2 implemented in `infra/teammind/` (see "Changes during implementation" at the end)
-**Related:** `docs/plans/teammind-terraform-setup.md` (the server and today's nightly dump),
+**Related:** `teammind-terraform-setup.md` (the server and today's nightly dump),
 `infra/teammind/README.md` ("Backups", "Restore"), `rebuild/docs/server-mode.md` (what the host keeps).
 
 A TeamMind server runs on one VM: PostgreSQL with the team's memory, and Olyvr headless with the memory

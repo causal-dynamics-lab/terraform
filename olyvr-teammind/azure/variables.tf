@@ -209,7 +209,7 @@ variable "backup_bucket" {
 }
 
 variable "backup_targets" {
-  description = "Where backup sets go, each <remote>:<path> (docs/plans/teammind-backup-recovery.md). `cloud` is this cloud's backup_bucket through the VM's identity; other remotes are rclone config sections in backup_remote_secret. Empty: cloud:<backup_bucket>/<hostname>."
+  description = "Where backup sets go, each <remote>:<path> (olyvr-teammind/docs/teammind-backup-recovery.md). `cloud` is this cloud's backup_bucket through the VM's identity; other remotes are rclone config sections in backup_remote_secret. Empty: cloud:<backup_bucket>/<hostname>."
   type        = list(string)
   default     = []
   validation {

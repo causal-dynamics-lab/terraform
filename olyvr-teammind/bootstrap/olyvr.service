@@ -7,9 +7,8 @@ Wants=network-online.target
 User=olyvr
 Group=olyvr
 EnvironmentFile=/etc/olyvr/olyvr.env
-Environment=PYTHONPATH=/opt/olyvr/src/rebuild/backend
 WorkingDirectory=/var/lib/olyvr
-ExecStart=/opt/olyvr/src/rebuild/.venv/bin/python /opt/olyvr/src/rebuild/scripts/backend-entry.py --port 9420 --state /var/lib/olyvr/state
+ExecStart=/opt/olyvr/app/backend/olyvr-backend --port 9420 --state /var/lib/olyvr/state
 Restart=on-failure
 RestartSec=5
 KillMode=mixed

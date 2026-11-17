@@ -4,7 +4,7 @@
     teammind-unpack.py ./teammind-<host>-<time> | ssh ubuntu@<ip> sudo teammind-restore -
 
 Runs on the operator's machine, which holds the age private key; the server never does. Before anything is
-sent it refuses the set unless (docs/plans/teammind-backup-recovery.md, "Encryption and signing"):
+sent it refuses the set unless (olyvr-teammind/docs/teammind-backup-recovery.md, "Encryption and signing"):
 
 1. manifest.json.age.sig verifies against a key in the operator's own allowed-signers file (never one that came
    with the set), in the teammind-backup namespace;
@@ -111,7 +111,7 @@ def confirm(manifest: dict, principal: str, assume_yes: bool) -> None:
     age = time.time() - calendar.timegm(time.strptime(manifest["created"], "%Y-%m-%dT%H:%M:%SZ"))
     print(f"set      {manifest['set']}\nsigned   by {principal}\nhost     {manifest['host']}\n"
           f"created  {manifest['created']} ({age / 3600:.1f} hours ago)\n"
-          f"olyvr    {manifest['versions']['olyvr_commit']}\nrows     "
+          f"olyvr    {manifest['versions'].get('olyvr_version') or manifest['versions'].get('olyvr_commit')}\nrows     "
           + ", ".join(f"{t} {n}" for t, n in sorted(manifest["counts"].items())), file=sys.stderr)
     if assume_yes:
         return

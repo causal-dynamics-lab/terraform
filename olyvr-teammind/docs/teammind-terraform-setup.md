@@ -5,7 +5,7 @@
 > staged bundle. Paths and details below are as they were.
 
 **Status:** Approved 2026-10-30; implemented in `infra/teammind/` (see "Changes after approval" at the end)
-**Related:** `docs/plans/teammind-dogfood1-postgres-deploy.md` (the existing VM, done by hand),
+**Related (in the olyvr repo):** `docs/plans/teammind-dogfood1-postgres-deploy.md` (the existing VM, done by hand),
 `docs/plans/teammind-memory-server-postgres.md` (the code), `rebuild/docs/server-mode.md` (design).
 
 One `terraform apply` launches a VM in the chosen cloud and, inside it, installs PostgreSQL with

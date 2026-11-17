@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Restore a backup set onto this server (docs/plans/teammind-backup-recovery.md, "Restore"):
+# Restore a backup set onto this server (olyvr-teammind/docs/teammind-backup-recovery.md, "Restore"):
 #
 #   teammind-unpack.py ./<set> | ssh <admin>@<ip> sudo teammind-restore [--db-only] [--sanitize] [--allow-version-skew] -
 #   sudo teammind-restore /path/to/teammind-Mon.dump        # a plain dump from before backup sets: the database only
@@ -29,7 +29,7 @@ set -euo pipefail
 STATE=/var/lib/olyvr/state
 API=http://127.0.0.1:9420
 ROTATION=/var/lib/olyvr/rotation-required
-PY=/opt/olyvr/src/rebuild/.venv/bin/python   # has the cryptography package the vault uses
+PY=/usr/bin/python3   # with python3-cryptography (bootstrap.sh, packages), which the vault uses
 HEALTH_SECONDS=${TEAMMIND_HEALTH_SECONDS:-600}
 
 db_only=0; sanitize=0; skew=0; rotation_done=0; input=""
@@ -147,10 +147,12 @@ if [ "$input" = - ]; then
       || { echo "$f doesn't match the manifest's digest; nothing changed" >&2; exit 1; }
   done
   set_name=$(jq -r .set "$manifest")
-  commit=$(jq -r .versions.olyvr_commit "$manifest")
-  if [ "$commit" != "$OLYVR_SOURCE_COMMIT" ] && [ "$skew" = 0 ]; then
-    echo "the set was made by Olyvr $commit; this server runs $OLYVR_SOURCE_COMMIT. Rerun the bootstrap at $commit," >&2
-    echo "restore, then upgrade; or pass --allow-version-skew" >&2; exit 1
+  # The Olyvr build: the set's (olyvr_commit in sets from before bundles) against this host's bundle.
+  theirs=$(jq -r '.versions.olyvr_version // .versions.olyvr_commit // "unknown"' "$manifest")
+  mine=$(sed -n 's/^olyvr_version=//p' /opt/olyvr/bundle/BUNDLE 2>/dev/null || true)
+  if [ "$theirs" != "${mine:-unknown}" ] && [ "$skew" = 0 ]; then
+    echo "the set was made by Olyvr $theirs; this server runs ${mine:-an unknown version}. Bootstrap from a bundle" >&2
+    echo "of $theirs, restore, then upgrade; or pass --allow-version-skew" >&2; exit 1
   fi
   echo "restoring $set_name (made $(jq -r .created "$manifest") on $(jq -r .host "$manifest"))"
 elif [ -f "$input" ] && [ "$(head -c 5 "$input")" = PGDMP ]; then
