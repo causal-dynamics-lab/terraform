@@ -1,0 +1,18 @@
+[Unit]
+Description=Olyvr backend (headless TeamMind host)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=olyvr
+Group=olyvr
+EnvironmentFile=/etc/olyvr/olyvr.env
+WorkingDirectory=/var/lib/olyvr
+ExecStart=/opt/olyvr/app/backend/olyvr-backend --port 9420 --state /var/lib/olyvr/state
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=60
+
+[Install]
+WantedBy=multi-user.target

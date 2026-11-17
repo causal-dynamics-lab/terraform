@@ -8,6 +8,9 @@ Customer-facing Terraform modules for [Cielara](https://cielara.ai) deployments.
 - [`cielara-enterprise-cloud-network/`](cielara-enterprise-cloud-network/) —
   bring-your-own network modules for enterprise deployments (Azure VNet +
   private endpoints, AWS VPC + remote-cluster connectivity, GCP VPC).
+- [`olyvr-teammind/`](olyvr-teammind/) — a TeamMind server (Olyvr's shared team
+  memory) on one VM in Google Cloud, AWS or Azure, with its backup bucket.
+  Applied by hand from its own roots; not part of a release.
 - [`cdl-registry-prepare/`](cdl-registry-prepare/) and
   [`cdl-registry-networking/`](cdl-registry-networking/) — Terraform Registry
   editions of the prepare and network modules. Each subdirectory is the exact

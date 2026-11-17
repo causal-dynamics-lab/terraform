@@ -1,0 +1,5 @@
+resource_group_name  = "<state-resource-group>"
+storage_account_name = "<state-account>"
+container_name       = "tfstate"
+key                  = "olyvr-teammind/azure-backups/<environment>.tfstate"
+use_azuread_auth     = true

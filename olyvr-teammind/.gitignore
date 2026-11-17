@@ -1,0 +1,3 @@
+# Each operator's backend settings (bucket names); the .example files are kept.
+backend.hcl
+*.tfplan

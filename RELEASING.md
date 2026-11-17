@@ -25,6 +25,9 @@ No branch ever carries a version: `prepare_version` stays `0.0.0-dev` on
 on a detached commit that only the release tag points to, so cloning a tag
 gets a stamped tree while the branches stay untouched.
 
+`olyvr-teammind/` is not released: no tag stamps it and no mirror carries it.
+Its roots are applied by hand from `main` (its README says how).
+
 ## Cutting a release
 
 Actions → `release` → Run workflow. Pick the **train branch**

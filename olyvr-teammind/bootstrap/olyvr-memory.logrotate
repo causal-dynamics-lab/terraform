@@ -1,0 +1,8 @@
+/var/lib/olyvr/state/memory/server.log /var/lib/olyvr/state/memory/install.log {
+    weekly
+    rotate 4
+    copytruncate
+    compress
+    missingok
+    notifempty
+}
