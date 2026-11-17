@@ -1,0 +1,115 @@
+name: olyvr-teammind
+# Checks olyvr-teammind without cloud credentials: Terraform format and validity of the six roots, tflint,
+# shellcheck on the bootstrap and the operator tools, that the three server roots carry the same shared files, and
+# the folder a gs:// bundle's read access is scoped to.
+on:
+  pull_request:
+    paths:
+      - "olyvr-teammind/**"
+      - ".github/workflows/olyvr-teammind.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.11.4" # the aws roots need 1.11 for the S3 backend's use_lockfile
+      - uses: terraform-linters/setup-tflint@v4
+      - name: Shared files are the same in every server root
+        run: |
+          cd olyvr-teammind
+          for f in variables.tf common.tf outputs.tf; do
+            cmp gcp/$f aws/$f && cmp gcp/$f azure/$f || { echo "$f differs between the roots"; exit 1; }
+          done
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff olyvr-teammind
+      - name: terraform validate
+        run: |
+          for d in gcp aws azure gcp/backups aws/backups azure/backups; do
+            echo "== $d"
+            (cd olyvr-teammind/$d && terraform init -backend=false -input=false >/dev/null && terraform validate -no-color)
+          done
+      - name: tflint
+        run: |
+          tflint --init
+          for d in gcp aws azure gcp/backups aws/backups azure/backups; do
+            echo "== $d"
+            tflint --chdir olyvr-teammind/$d
+          done
+      - name: shellcheck
+        run: shellcheck -x olyvr-teammind/bootstrap/*.sh olyvr-teammind/operator/*.sh
+      - name: gs:// bundle scope
+        # The folder the VM's objectViewer is conditioned on: the staged folder's parent, or the folder itself at the
+        # bucket's root (never the whole bucket); a bucket with no folder leaves it empty, which a precondition refuses.
+        run: |
+          cd olyvr-teammind/gcp
+          # console needs an initialised backend; on this throwaway checkout the root runs on local state instead.
+          rm backend.tf && rm -rf .terraform && terraform init -backend=false -input=false >/dev/null
+          cat > /tmp/ci.tfvars <<'TFVARS'
+          project = "p"
+          memory_release = "v0"
+          llm_base_url = "https://example.invalid/v1"
+          llm_model = "m"
+          admin_cidrs = ["203.0.113.0/24"]
+          reader_cidrs = ["203.0.113.0/24"]
+          ssh_public_key = "ssh-ed25519 AAAA test"
+          backup_bucket = "b"
+          backup_age_recipients = ["age10fxeyeg5hezcm2jc69ffg52yw8sfndl8h9554hp254rm5rhwc50qypju46"]
+          machine_type = "e2-standard-2"
+          artifacts_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          TFVARS
+          # The real binary: setup-terraform's wrapper doesn't pass stdin through, so console would wait forever.
+          check() {
+            got=$(echo 'jsonencode([local.artifacts_bucket, local.artifacts_scope])' \
+              | timeout 120 "$TERRAFORM_CLI_PATH/terraform-bin" console -no-color -state=/tmp/ci-console.tfstate -var-file=/tmp/ci.tfvars -var "artifacts=$1")
+            [ "$got" = "$2" ] || { echo "$1: got $got, want $2"; exit 1; }
+            echo "$1 -> $got"
+          }
+          check gs://bkt/teammind/dev-x '"[\"bkt\",\"teammind\"]"'
+          check gs://bkt/a/c/dev-x '"[\"bkt\",\"a/c\"]"'
+          check gs://bkt/dev-x '"[\"bkt\",\"dev-x\"]"'
+          check gs://bkt '"[\"bkt\",\"\"]"'
+      - name: teammind-unpack compiles
+        run: python3 -m py_compile olyvr-teammind/operator/teammind-unpack.py
+      - name: cloud-init renders and parses
+        run: |
+          pip install -q pyyaml
+          cat > /tmp/render.tf <<'TF'
+          output "r" {
+            value = templatefile("${path.module}/olyvr-teammind/bootstrap/cloud-init.yaml.tftpl", {
+              ssh_user = "ubuntu", ssh_public_key = "ssh-ed25519 AAAA test", cloud = var.cloud, gcp_project = "", azure_vault = "",
+              artifacts = var.artifacts, artifacts_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+              memory_release = "v0", llm_base_url = "https://example.invalid/v1", llm_model = "m",
+              llm_key_secret = "", tls_mode = "self_signed", domain = "", acme_email = "", tls_secret = "", gate_port = 8013,
+              backup_bucket = "b", public_ip = "203.0.113.5",
+              backup_targets = ["cloud:b/host", "nas_backup:/incoming"], backup_remote_secret = "r",
+              backup_age_recipients = ["age10fxeyeg5hezcm2jc69ffg52yw8sfndl8h9554hp254rm5rhwc50qypju46"],
+              backup_schedule = "15 3 * * *", backup_max_age_hours = 26, backup_ping_url = "", pull_ssh_public_key = "ssh-ed25519 AAAA pc",
+              scripts = { for f in ["bootstrap.sh", "olyvr.service", "olyvr-memory.logrotate", "certbot-deploy.sh", "teammind-check.sh", "aws-cli.pub.asc"] : f => file("${path.module}/olyvr-teammind/bootstrap/${f}") }
+            })
+          }
+          variable "cloud" {}
+          variable "artifacts" {}
+          TF
+          mkdir -p /tmp/render && cp /tmp/render.tf /tmp/render/main.tf && ln -s "$PWD/olyvr-teammind" /tmp/render/olyvr-teammind
+          cd /tmp/render && terraform init -backend=false >/dev/null
+          for c in aws:s3://b/bundle gcp:gs://b/teammind/bundle; do
+            echo "== ${c%%:*}"
+            terraform apply -auto-approve -state="${c%%:*}.tfstate" -var "cloud=${c%%:*}" -var "artifacts=${c#*:}" >/dev/null
+            terraform output -state="${c%%:*}.tfstate" -raw r > rendered.yaml
+            ARTIFACTS="${c#*:}" python3 - <<'PY'
+          import os, yaml, gzip
+          raw = open("rendered.yaml", "rb").read()
+          d = yaml.safe_load(raw)
+          assert any(w["path"].endswith("/bootstrap.sh") for w in d["write_files"])
+          assert os.environ["ARTIFACTS"].encode() in raw, "the artifacts value isn't in the user data"
+          size = len(gzip.compress(raw))
+          print("gzipped user data:", size, "bytes")
+          assert size < 15 * 1024, "AWS caps user data at 16 KiB"
+          PY
+          done

@@ -1,0 +1,48 @@
+#cloud-config
+# Rendered by olyvr-teammind/<cloud>: writes the bootstrap's inputs and the scripts, then runs it. Holds names,
+# URLs, digests and switches only; every secret is read on the VM from the secret store by name. bootstrap.env is
+# sourced by a root shell, so every value is single-quoted here and the variables refuse quotes, whitespace and
+# shell metacharacters (variables.tf), so no input can add a command.
+users:
+  - name: ${ssh_user}
+    groups: [sudo]
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - '${replace(ssh_public_key, "'", "''")}'
+write_files:
+  - path: /etc/olyvr/bootstrap.env
+    permissions: "0600"
+    content: |
+      CLOUD='${replace(cloud, "'", "'\\''")}'
+      GCP_PROJECT='${replace(gcp_project, "'", "'\\''")}'
+      AZURE_VAULT='${replace(azure_vault, "'", "'\\''")}'
+      ARTIFACTS='${replace(artifacts, "'", "'\\''")}'
+      ARTIFACTS_SHA256='${replace(artifacts_sha256, "'", "'\\''")}'
+      MEMORY_RELEASE='${replace(memory_release, "'", "'\\''")}'
+      LLM_BASE_URL='${replace(llm_base_url, "'", "'\\''")}'
+      LLM_MODEL='${replace(llm_model, "'", "'\\''")}'
+      LLM_KEY_SECRET='${replace(llm_key_secret, "'", "'\\''")}'
+      TLS_MODE='${replace(tls_mode, "'", "'\\''")}'
+      DOMAIN='${replace(domain, "'", "'\\''")}'
+      ACME_EMAIL='${replace(acme_email, "'", "'\\''")}'
+      TLS_SECRET='${replace(tls_secret, "'", "'\\''")}'
+      GATE_PORT='${tostring(gate_port)}'
+      BACKUP_BUCKET='${replace(backup_bucket, "'", "'\\''")}'
+      PUBLIC_IP='${replace(public_ip, "'", "'\\''")}'
+      BACKUP_TARGETS='${replace(join(" ", backup_targets), "'", "'\\''")}'
+      BACKUP_REMOTE_SECRET='${replace(backup_remote_secret, "'", "'\\''")}'
+      BACKUP_AGE_RECIPIENTS='${replace(join(" ", backup_age_recipients), "'", "'\\''")}'
+      BACKUP_SCHEDULE='${replace(backup_schedule, "'", "'\\''")}'
+      BACKUP_MAX_AGE_HOURS='${tostring(backup_max_age_hours)}'
+      BACKUP_PING_URL='${replace(backup_ping_url, "'", "'\\''")}'
+      PULL_SSH_PUBLIC_KEY='${replace(pull_ssh_public_key, "'", "'\\''")}'
+%{ for name, content in scripts ~}
+  - path: /opt/olyvr/bootstrap/${name}
+    permissions: "0755"
+    content: |
+      ${indent(6, content)}
+%{ endfor ~}
+runcmd:
+  - [ ln, -sf, /opt/olyvr/bootstrap/bootstrap.sh, /opt/olyvr/bootstrap.sh ]
+  - [ /opt/olyvr/bootstrap/bootstrap.sh ]

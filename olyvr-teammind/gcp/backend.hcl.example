@@ -1,0 +1,2 @@
+bucket = "<state-bucket>"
+prefix = "olyvr-teammind/gcp"

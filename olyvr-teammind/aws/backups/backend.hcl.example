@@ -1,0 +1,5 @@
+bucket       = "<state-bucket>"
+key          = "olyvr-teammind/aws-backups/terraform.tfstate"
+region       = "<bucket-region>"
+encrypt      = true
+use_lockfile = true
