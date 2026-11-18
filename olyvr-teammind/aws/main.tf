@@ -52,7 +52,7 @@ locals {
   own_vpc     = var.vpc_id == ""
   vpc_id      = local.own_vpc ? aws_vpc.this[0].id : var.vpc_id
   subnet_id   = local.own_vpc ? aws_subnet.this[0].id : (var.subnet_id != "" ? var.subnet_id : data.aws_subnets.given[0].ids[0])
-  secrets     = compact([var.llm_key_secret, var.tls_secret, var.backup_remote_secret])
+  secrets     = compact([var.llm_key_secret, var.tls_secret, var.backup_remote_secret, var.grafana_secret])
   # An s3:// bundle is read with the VM's identity: GetObject on the folder teammind-stage.sh staged it in
   # (<dest>/<track>-<version>), so the VM can be moved to another bundle there without an apply.
   artifacts_s3 = startswith(var.artifacts, "s3://") ? dirname(trimprefix(var.artifacts, "s3://")) : ""

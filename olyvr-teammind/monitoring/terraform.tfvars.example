@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (git-ignored) and fill in. README.md, "Monitoring", says where each key comes from.
+grafana_url  = "https://<stack>.grafana.net"
+grafana_auth = "glsa_…"
+
+sm_url          = "https://synthetic-monitoring-api-<region>.grafana.net"
+sm_access_token = "…"
+
+pagerduty_integration_key = "…"
+
+prometheus_data_source = "grafanacloud-<stack>-prom"
+loki_data_source       = "grafanacloud-<stack>-logs"
+
+servers = {
+  teammind = { url = "https://teammind.example.com:8013/collections" }
+  dogfood  = { url = "https://dogfood.olyvr.ai:8013/collections", self_signed = true }
+}

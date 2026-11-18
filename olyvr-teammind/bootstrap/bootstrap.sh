@@ -504,6 +504,15 @@ if ! is_done backups "$BACKUP_DIGEST" || [ -z "$(jq -r '.last_success.time // em
   mark backups "$BACKUP_DIGEST"
 fi
 
+# ---------- 10. monitoring (docs/teammind-monitoring.md) ----------
+step monitoring
+if [ -n "${GRAFANA_SECRET:-}" ]; then
+  [ -f "$tools/teammind-monitoring.sh" ] || { echo "$tools has no teammind-monitoring.sh: stage a newer bundle" >&2; exit 1; }
+  install -m 755 "$tools/teammind-monitoring.sh" /usr/local/bin/teammind-monitoring
+  g=$(read_secret "$GRAFANA_SECRET"); (umask 077; printf '%s\n' "$g" > /etc/olyvr/grafana.env); unset g
+  teammind-monitoring install
+fi
+
 URL="https://${DOMAIN:-$PUBLIC_IP}:$GATE_PORT"
 printf '%s\nbackup signing key (add to allowed_signers): %s\n' "$URL" "$SIGNING_KEY" > "$READY"
 echo "== TeamMind is up at $URL (token: sudo cat $TOKEN_FILE)"

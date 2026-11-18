@@ -1,5 +1,5 @@
 name: olyvr-teammind
-# Checks olyvr-teammind without cloud credentials: Terraform format and validity of the six roots, tflint,
+# Checks olyvr-teammind without cloud credentials: Terraform format and validity of the seven roots, tflint,
 # shellcheck on the bootstrap and the operator tools, that the three server roots carry the same shared files, and
 # the folder a gs:// bundle's read access is scoped to.
 on:
@@ -30,14 +30,14 @@ jobs:
         run: terraform fmt -check -recursive -diff olyvr-teammind
       - name: terraform validate
         run: |
-          for d in gcp aws azure gcp/backups aws/backups azure/backups; do
+          for d in gcp aws azure gcp/backups aws/backups azure/backups monitoring; do
             echo "== $d"
             (cd olyvr-teammind/$d && terraform init -backend=false -input=false >/dev/null && terraform validate -no-color)
           done
       - name: tflint
         run: |
           tflint --init
-          for d in gcp aws azure gcp/backups aws/backups azure/backups; do
+          for d in gcp aws azure gcp/backups aws/backups azure/backups monitoring; do
             echo "== $d"
             tflint --chdir olyvr-teammind/$d
           done
@@ -90,6 +90,7 @@ jobs:
               backup_targets = ["cloud:b/host", "nas_backup:/incoming"], backup_remote_secret = "r",
               backup_age_recipients = ["age10fxeyeg5hezcm2jc69ffg52yw8sfndl8h9554hp254rm5rhwc50qypju46"],
               backup_schedule = "15 3 * * *", backup_max_age_hours = 26, backup_ping_url = "", pull_ssh_public_key = "ssh-ed25519 AAAA pc",
+              name = "teammind", grafana_secret = "grafana-connection",
               scripts = { for f in ["bootstrap.sh", "olyvr.service", "olyvr-memory.logrotate", "certbot-deploy.sh", "teammind-check.sh", "aws-cli.pub.asc"] : f => file("${path.module}/olyvr-teammind/bootstrap/${f}") }
             })
           }

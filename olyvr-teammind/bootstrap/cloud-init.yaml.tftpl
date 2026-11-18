@@ -37,6 +37,8 @@ write_files:
       BACKUP_MAX_AGE_HOURS='${tostring(backup_max_age_hours)}'
       BACKUP_PING_URL='${replace(backup_ping_url, "'", "'\\''")}'
       PULL_SSH_PUBLIC_KEY='${replace(pull_ssh_public_key, "'", "'\\''")}'
+      NAME='${replace(name, "'", "'\\''")}'
+      GRAFANA_SECRET='${replace(grafana_secret, "'", "'\\''")}'
 %{ for name, content in scripts ~}
   - path: /opt/olyvr/bootstrap/${name}
     permissions: "0755"

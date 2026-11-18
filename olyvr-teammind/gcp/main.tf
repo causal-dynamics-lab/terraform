@@ -39,7 +39,7 @@ locals {
   azure_vault = ""
   public_ip   = google_compute_address.this.address
   vm_id       = google_compute_instance.this.id
-  secrets     = compact([var.llm_key_secret, var.tls_secret, var.backup_remote_secret])
+  secrets     = compact([var.llm_key_secret, var.tls_secret, var.backup_remote_secret, var.grafana_secret])
   # A gs:// bundle is read with the VM's service account: objectViewer on the folder teammind-stage.sh staged it in
   # (<dest> of <dest>/<track>-<version>), so the VM can be moved to another bundle there without an apply. A bundle
   # at the bucket's root gets its own folder only, never the whole bucket.
