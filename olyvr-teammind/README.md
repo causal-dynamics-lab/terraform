@@ -165,6 +165,30 @@ and redoes itself when they change:
 A failed bootstrap leaves the VM up with the log in `/var/log/teammind-bootstrap.log`; fix the cause and run it
 again. No step is destructive on a rerun.
 
+## Opening the server's Olyvr
+
+The server's Olyvr (Settings, the memory server, its data sources, Insights) answers on the VM's loopback port
+9420 only, and by default only to the desktop shell, which a server doesn't have: a browser gets
+`401 launch this app through its local desktop shell`. To open it in a browser, give the service the setting
+`OLYVR_BROWSER_SESSION=1` in a systemd drop-in of its own, which a later bootstrap run leaves alone, and tunnel to
+the port from your machine:
+
+```bash
+# on the VM, once
+sudo install -d /etc/systemd/system/olyvr.service.d
+printf '[Service]\nEnvironment=OLYVR_BROWSER_SESSION=1\n' | sudo tee /etc/systemd/system/olyvr.service.d/browser.conf
+sudo systemctl daemon-reload && sudo systemctl restart olyvr
+
+# on your machine
+ssh -N -L 9420:127.0.0.1:9420 <ssh_user>@<public_ip>     # or: gcloud compute ssh <vm> -- -N -L 9420:127.0.0.1:9420
+# then open http://127.0.0.1:9420/
+```
+
+No token is asked for: opening the page starts a session, kept in a cookie. The tunnel is what keeps others out.
+The port is never opened in the firewall and the backend still refuses any host but loopback, so with the setting
+on, whoever can ssh to the VM (or run a process on it) can open its Olyvr. Leave it off on a server where that is
+too many people.
+
 ## Day to day, on the VM
 
 | | |
