@@ -28,7 +28,9 @@ locals {
     backup_max_age_hours  = var.backup_max_age_hours
     backup_ping_url       = var.backup_ping_url
     pull_ssh_public_key   = var.pull_ssh_public_key
-    # teammind-backup, teammind-restore and teammind-check-sftp are installed from the bundle
+    name                  = var.name
+    grafana_secret        = var.grafana_secret
+    # teammind-backup, teammind-restore, teammind-check-sftp and teammind-monitoring are installed from the bundle
     # (bootstrap.sh, step 9).
     scripts = {
       for f in ["bootstrap.sh", "olyvr.service", "olyvr-memory.logrotate", "certbot-deploy.sh",

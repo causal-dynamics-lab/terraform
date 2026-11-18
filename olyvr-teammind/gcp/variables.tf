@@ -277,6 +277,16 @@ variable "pull_ssh_public_key" {
   }
 }
 
+variable "grafana_secret" {
+  description = "Name of the secret holding the Grafana Cloud connection, lines of KEY=value: GRAFANA_METRICS_URL, GRAFANA_METRICS_USER, GRAFANA_LOGS_URL, GRAFANA_LOGS_USER and GRAFANA_TOKEN (an access policy token with metrics:write and logs:write). Set: the bootstrap installs Grafana Alloy, which sends the VM's metrics and logs there (docs/teammind-monitoring.md). Empty: no monitoring."
+  type        = string
+  default     = ""
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._:/@+=-]*$", var.grafana_secret))
+    error_message = "grafana_secret is written into a file a root shell sources: letters, digits and . _ : / @ + = - only."
+  }
+}
+
 variable "machine_type" {
   description = "VM size: 2 vCPUs and 8 GB hold Olyvr, the memory API and a small PostgreSQL."
   type        = string

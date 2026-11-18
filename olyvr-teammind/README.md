@@ -16,17 +16,20 @@ olyvr-teammind/
 │  ├─ olyvr.service, olyvr-memory.logrotate, certbot-deploy.sh
 │  ├─ teammind-check.sh  health and readiness
 │  ├─ teammind-backup.sh, teammind-restore.sh, teammind-check-sftp.sh   installed from the bundle, not user data
+│  ├─ teammind-monitoring.sh  Grafana Alloy: metrics and logs to Grafana Cloud (from the bundle too)
 │  └─ wait-ready.sh      the readiness check Terraform runs from your machine
 ├─ operator/             run on your machine, never on the server
 │  ├─ teammind-unpack.py checks a backup set's signature and digests and streams it, decrypted, to teammind-restore
 │  ├─ teammind-stage.sh  stages the bundle a server installs
 │  └─ teammind-pull.sh   pulls the encrypted sets to a PC or NAS
-└─ gcp/  aws/  azure/    one root per cloud; variables.tf, common.tf and outputs.tf are identical copies
-   ├─ backend.tf         where the state lives (backend.hcl.example; see "State")
-   └─ backups/           the durable bucket, its own root, applied once per environment
+├─ gcp/  aws/  azure/    one root per cloud; variables.tf, common.tf and outputs.tf are identical copies
+│  ├─ backend.tf         where the state lives (backend.hcl.example; see "State")
+│  └─ backups/           the durable bucket, its own root, applied once per environment
+└─ monitoring/           Grafana Cloud alerts, PagerDuty and the outside checks, for every server (state in GCS)
 ```
 
-Backups are planned in [docs/teammind-backup-recovery.md](docs/teammind-backup-recovery.md).
+Backups are planned in [docs/teammind-backup-recovery.md](docs/teammind-backup-recovery.md), monitoring in
+[docs/teammind-monitoring.md](docs/teammind-monitoring.md).
 
 ## State
 
@@ -156,6 +159,7 @@ and redoes itself when they change:
 | `MEMORY_RELEASE` (with a bundle holding it) | stops the memory API, removes its venv and installs again |
 | `LLM_*`, or the key's secret value | rewrites `olyvr.env` and restarts Olyvr (the memory process gets its model when it starts) |
 | `TLS_MODE`, `DOMAIN`, `ACME_EMAIL`, or the provided pair's secret | gets the certificate again and re-saves it through the local API, which restarts the gate |
+| `GRAFANA_SECRET`, or the secret's value | rewrites `/etc/olyvr/grafana.env` and Alloy's config, restarts Alloy |
 | the PostgreSQL password, the tokens | never: made once. Rotate the reader token through the local API (next row) |
 
 A failed bootstrap leaves the VM up with the log in `/var/log/teammind-bootstrap.log`; fix the cause and run it
@@ -170,6 +174,7 @@ again. No step is destructive on a rerun.
 | The local API | `curl -s -H "Authorization: Bearer $(sudo cat /etc/olyvr/session-token)" http://127.0.0.1:9420/api/memory-server` |
 | Rotate the reader token | share the secondary first: `… -d '{"action":"token","slot":"secondary"}'`, then regenerate the primary |
 | Backups | `/etc/cron.d/teammind-backup` at `backup_schedule`: one encrypted, signed set to `/var/backups/teammind/<set>` (a week) and to every `backup_targets` entry. Status: `/var/lib/olyvr/backup-status.json`. Log: `/var/log/teammind-backup.log`. By hand: `sudo teammind-backup [--verify]` |
+| Monitoring | `systemctl status alloy teammind-collect.timer`; Alloy's own UI on `127.0.0.1:12345` (ssh -L); the last check `/run/teammind-check.last`; the metrics it wrote `/var/lib/alloy/textfile/teammind.prom` |
 | Certificates | certbot renews by its timer; `/etc/letsencrypt/renewal-hooks/deploy/olyvr.sh` copies the new pair and restarts `olyvr`, since the gate serves the certificate it started with (log: `/var/log/teammind-certbot.log`) |
 
 ## Backups
@@ -248,6 +253,59 @@ a backup and prints what to drop when happy. Options:
 - `--allow-version-skew`: a set made by another Olyvr build is refused otherwise; better, rerun the bootstrap on the
   set's bundle, restore, then upgrade.
 
+## Monitoring
+
+Grafana Alloy on the VM sends its metrics (CPU, memory, disk, network, the `olyvr` and PostgreSQL units, and
+`teammind-check`'s result every minute) and its logs (those units' journal, the memory API's `server.log`, the
+bootstrap and backup logs) to Grafana Cloud, labelled `teammind_server` = `name`. `monitoring/` makes the alerts,
+sends them to PagerDuty, and calls each gate from Grafana's probes. The plan, with the alert list:
+[docs/teammind-monitoring.md](docs/teammind-monitoring.md).
+
+**Keys, made by hand, never committed:**
+
+| Key | Where to make it | Where it goes |
+| --- | --- | --- |
+| Access policy token, scopes `metrics:write` and `logs:write` | Grafana Cloud portal → Access Policies | the `grafana_secret` secret, below |
+| Service account token, role Editor | the stack's Grafana → Administration → Service accounts | `grafana_auth` in `monitoring/terraform.tfvars` |
+| Synthetic Monitoring access token | the stack's Grafana → Testing & synthetics → Config | `sm_access_token` there |
+| PagerDuty Events API v2 integration key | PagerDuty → the TeamMind service → Integrations | `pagerduty_integration_key` there |
+
+**On each server.** Put the connection in the cloud's secret store as one secret, lines of `KEY=value` (the URLs
+and IDs are on the stack's Prometheus and Loki *Details* pages in the portal):
+
+```
+GRAFANA_METRICS_URL=https://prometheus-prod-….grafana.net/api/prom/push
+GRAFANA_METRICS_USER=<Prometheus instance ID>
+GRAFANA_LOGS_URL=https://logs-prod-….grafana.net/loki/api/v1/push
+GRAFANA_LOGS_USER=<Loki user ID>
+GRAFANA_TOKEN=glc_…
+```
+
+and set `grafana_secret` to its name; the VM's identity gets read access to it like the others. One secret, not five
+variables: each variable costs user data, and AWS caps that at 16 KiB. A running server: apply (for the read
+access), add `GRAFANA_SECRET='<name>'` and `NAME='<name>'` to `/etc/olyvr/bootstrap.env`, and rerun the bootstrap.
+The bundle must be staged from a checkout that has `teammind-monitoring.sh`.
+
+A hand-built VM (dogfood): copy `bootstrap/teammind-check.sh` and `bootstrap/teammind-monitoring.sh` to
+`/usr/local/bin/teammind-check` and `/usr/local/bin/teammind-monitoring`, write the lines above to
+`/etc/olyvr/grafana.env` (mode 600) and `TEAMMIND_SERVER`, `CLOUD`, `GATE_PORT` and `DOMAIN` to
+`/etc/olyvr/monitoring.env`, then `sudo teammind-monitoring install`. `teammind-check` needs the session token in
+`/etc/olyvr/session-token`.
+
+**The alerts.** Once, and again when a server is added:
+
+```bash
+cd olyvr-teammind/monitoring
+cp terraform.tfvars.example terraform.tfvars && $EDITOR terraform.tfvars   # git-ignored
+cp backend.hcl.example backend.hcl && $EDITOR backend.hcl                   # git-ignored
+terraform init -backend-config=backend.hcl && terraform apply
+```
+
+`servers` lists the gates to call from outside, keyed by `teammind_server`; the probes in `probes` must get through
+the server's `reader_cidrs`. Rules route to the PagerDuty contact point by their own notification settings, so the
+stack's notification policies stay as they are. In PagerDuty, give `warning` events low urgency (an event rule on
+severity) so only `critical` ones wake someone.
+
 ## Destroy
 
 `terraform destroy` in the server root removes the VM, address, firewall, identity and DNS record. The
@@ -256,5 +314,5 @@ database goes with the disk; the sets in the bucket and every other destination 
 ## Checks in CI
 
 `.github/workflows/olyvr-teammind.yml`: the three roots' shared files are identical, `terraform fmt`,
-`terraform validate` on all six roots, tflint, shellcheck (bootstrap and operator scripts), `teammind-unpack.py`
+`terraform validate` on all seven roots, tflint, shellcheck (bootstrap and operator scripts), `teammind-unpack.py`
 compiles, and the cloud-init template renders to YAML under AWS's user-data cap. Applies are by hand: a VM plus a venv build costs real time and money.

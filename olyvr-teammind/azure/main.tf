@@ -244,7 +244,7 @@ resource "azurerm_linux_virtual_machine" "this" {
 
 # Read exactly the named secrets: Key Vault RBAC takes a secret's own resource id as scope.
 resource "azurerm_role_assignment" "secrets" {
-  for_each             = toset(compact([var.llm_key_secret, var.tls_secret, var.backup_remote_secret]))
+  for_each             = toset(compact([var.llm_key_secret, var.tls_secret, var.backup_remote_secret, var.grafana_secret]))
   scope                = "${data.azurerm_key_vault.this.id}/secrets/${each.value}"
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_linux_virtual_machine.this.identity[0].principal_id

@@ -71,7 +71,8 @@ memory_tag=$(basename "$memory" | sed -n 's/^reasonara-memory-\(v[^-]*\(-[a-z]*\
 
 cp "$appimage" "$out/olyvr.AppImage"
 cp "$memory" "$out/reasonara-memory.tar.gz"
-tar -czf "$out/teammind-tools.tar.gz" -C "$bootstrap" teammind-backup.sh teammind-restore.sh teammind-check-sftp.sh
+tar -czf "$out/teammind-tools.tar.gz" -C "$bootstrap" teammind-backup.sh teammind-restore.sh teammind-check-sftp.sh \
+  teammind-monitoring.sh
 cat > "$out/BUNDLE" <<EOF
 olyvr_version=$version
 olyvr_track=$track
