@@ -43,6 +43,22 @@ variable "availability_zone" {
   default     = ""
 }
 
+variable "egress_extra_tcp_ports" {
+  description = "TCP ports the server may dial on the internet besides 443, 80 and llm_base_url's port: e.g. 22 for an SFTP backup target in backup_remote_secret."
+  type        = list(number)
+  default     = []
+  validation {
+    condition     = alltrue([for p in var.egress_extra_tcp_ports : p >= 1 && p <= 65535 && floor(p) == p])
+    error_message = "egress_extra_tcp_ports holds TCP port numbers, 1 to 65535."
+  }
+}
+
+locals {
+  # The LLM endpoint's explicit port, if llm_base_url names one.
+  llm_port         = try(tonumber(regex("^[a-z]+://[^/:@]+:([0-9]+)", var.llm_base_url)[0]), null)
+  egress_tcp_ports = toset(compact(concat(["443", "80"], [for p in concat(local.llm_port == null ? [] : [local.llm_port], var.egress_extra_tcp_ports) : tostring(p)])))
+}
+
 locals {
   cloud       = "aws"
   gcp_project = ""
@@ -206,11 +222,23 @@ resource "aws_security_group" "this" {
       cidr_blocks = ["0.0.0.0/0"]
     }
   }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  # Egress narrowed to what the server dials (DCF-85). It does need the internet, so the
+  # destination stays 0.0.0.0/0 but only on these TCP ports:
+  #   443: S3 (bundle, backups), Secrets Manager, awscli/uv/rclone/Alloy downloads, the LLM endpoint
+  #        over https, Grafana Cloud, the backup ping URL, Let's Encrypt ACME
+  #   80:  apt (Ubuntu archive mirrors are plain http; packages are signature-checked)
+  #   the LLM endpoint's own port when llm_base_url names one (e.g. :11434), and egress_extra_tcp_ports
+  #   for anything else (an SFTP backup target on 22, say).
+  # DNS (VPC resolver), NTP (169.254.169.123) and instance metadata are not filtered by security groups.
+  dynamic "egress" {
+    for_each = local.egress_tcp_ports
+    content {
+      description = "tcp ${egress.value} to the internet"
+      from_port   = egress.value
+      to_port     = egress.value
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
   }
 }
 
