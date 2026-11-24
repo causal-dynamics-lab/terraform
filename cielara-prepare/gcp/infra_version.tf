@@ -38,6 +38,22 @@ resource "google_storage_bucket" "infra_version" {
   public_access_prevention    = "enforced"
   force_destroy               = true
 
+  # Keep every overwritten version.json recoverable; delete a replaced version
+  # 30 days after it became noncurrent. Both are
+  # in-place updates on an existing bucket.
+  versioning {
+    enabled = true
+  }
+
+  lifecycle_rule {
+    condition {
+      days_since_noncurrent_time = 30
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
   depends_on = [google_project_service.infra_version_storage]
 }
 

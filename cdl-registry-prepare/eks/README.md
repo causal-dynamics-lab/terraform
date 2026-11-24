@@ -30,7 +30,10 @@ key. The KMS key is regional, created in your active `AWS_REGION`.
 
 Requires Terraform >= 1.7 and an AWS identity with IAM-write permissions in
 the target account (an `AdministratorAccess` identity, or one scoped to
-`arn:aws:iam::*:role/cielara_eks_deployer_*`):
+`arn:aws:iam::*:role/cielara_eks_deployer_*`). A scoped identity also needs
+S3 permissions on the `cielara-infra-version-*` marker bucket, including
+`s3:PutBucketVersioning` and `s3:PutLifecycleConfiguration` (the bucket is
+versioned, with replaced versions expired after 30 days):
 
 ```bash
 aws configure sso                    # one-time SSO setup
@@ -107,6 +110,8 @@ The apply also creates a tiny S3 bucket,
 that records which version of this module ran (`0.0.0-dev` on an untagged
 checkout). A bucket policy grants the deployer role read on just this bucket
 so the Cielara control plane can tell the prepare vintage without asking you.
+The bucket is versioned: a replaced `version.json` is kept for 30 days, then
+deleted by a lifecycle rule.
 
 There is no customer-side read check here: the role's trust policy only lets
 the Cielara control plane assume it (by design), so the read is verified by

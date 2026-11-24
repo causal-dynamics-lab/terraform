@@ -53,6 +53,8 @@ group `cielara-infra-version-<cielara-client-id>`) with a single
 on an untagged checkout). The deployer service principal gets **Storage Blob
 Data Reader** on just this account so the Cielara control plane can tell the
 prepare vintage without asking you.
+Blob versioning is on: a replaced `version.json` is kept for 30 days, then
+deleted by the account's lifecycle management policy.
 
 To confirm the deployer can actually read it, log in as the service principal
 (values from `cielara-creds.json`) and download the blob:
@@ -112,8 +114,10 @@ Check the plan: it must show only imports plus new creations (the
 `cielara-creds.json` handback and, unless an earlier module run already
 created them, the infra-version resources — the module checks for those via
 `check-version-marker.sh` at plan time and imports what exists) — nothing
-changed, nothing destroyed. Two exceptions are expected: the `version.json` blob is
-re-uploaded on adoption (one replace — its content is not readable back), and
+changed, nothing destroyed. Three exceptions are expected: the `version.json` blob is
+re-uploaded on adoption (one replace — its content is not readable back); an
+infra-version storage account created by an earlier module version is updated
+in place to turn on blob versioning (its management policy is a new creation); and
 if the plan wants to **replace** a role assignment on the *subscription*
 scope, stop: the ABAC condition drifted (Azure replaces an assignment on any
 condition change, even whitespace). Then:
