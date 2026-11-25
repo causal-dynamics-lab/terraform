@@ -4,7 +4,10 @@
 > Source mode (the VM fetching commits with a GitHub token) has since been removed: a server installs only from a
 > staged bundle. Paths and details below are as they were.
 
-**Status:** Approved 2026-10-30; Phases 1 and 2 implemented in `infra/teammind/` (see "Changes during implementation" at the end)
+**Status:** Approved 2026-10-30; Phases 1 and 2 implemented in `infra/teammind/` (see "Changes during implementation" at the end).
+Since then, sets have been pushed through each server's own identity on real applies: to S3 on AWS (2026-10-30, checked
+by a scratch restore) and to GCS on Google Cloud (2026-11-20). A full restore of an encrypted set and `--sanitize`
+have still only run in a container.
 **Related:** `teammind-terraform-setup.md` (the server and today's nightly dump),
 `infra/teammind/README.md` ("Backups", "Restore"), `rebuild/docs/server-mode.md` (what the host keeps).
 
@@ -404,7 +407,8 @@ Third review:
   No PowerShell twin of the pull: Windows runs `teammind-pull.sh` in WSL (rsync isn't native to Windows).
 - **`teammind-backup`, `teammind-restore` and `teammind-check-sftp` are installed from the checkout**, not user data:
   user data is at 13.3 KB gzipped of the 15 KB the CI allows, and the checkout is pinned by its commit.
-  `olyvr_source_commit` must therefore include them; the bootstrap says so when it doesn't.
+  `olyvr_source_commit` must therefore include them; the bootstrap says so when it doesn't. *(Superseded: they now
+  come from the bundle's `teammind-tools.tar.gz`, which `operator/teammind-stage.sh` packs from this checkout.)*
 - **The signing key's public half is printed, not output by Terraform**: Terraform can't read a file the VM made
   (and a key Terraform made would sit in its state). The bootstrap prints the `allowed_signers` line, the readiness
   check shows it, and the output `signing_key_command` reads it from `/var/lib/olyvr/backup-signer`.
@@ -420,6 +424,6 @@ Third review:
   a full restore brings back the rows and the state and keeps the host's port and domain; a restore whose settings make
   the server unhealthy rolls back to a healthy server; `--sanitize` deletes the vault rows, revokes the tokens and holds
   readiness until `--rotation-done`; the SFTP block passes `teammind-check-sftp`; the pull fetches only finished sets
-  and its key gets no shell. Not yet run: a real apply on any cloud, so the `cloud` remote's write-only push through
-  each cloud's identity is untested.
+  and its key gets no shell. Not yet run at the time: a real apply on any cloud, so the `cloud` remote's write-only push
+  through each cloud's identity was untested (since run on AWS and Google Cloud; see Status).
 

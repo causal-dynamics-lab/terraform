@@ -1,6 +1,7 @@
 # Plan: monitoring and alerts for a TeamMind server
 
-**Status:** Approved 2026-11-18; built on `feat/olyvr-teammind-monitoring`
+**Status:** Approved 2026-11-18; merged in causal-dynamics-lab/terraform#66 (2026-11-18). Not yet applied to a
+Grafana stack or a server.
 **Related:** `../README.md` ("Monitoring"), `teammind-backup-recovery.md` ("Health and readiness"),
 `teammind-terraform-setup.md`.
 
@@ -89,6 +90,9 @@ what the VM can't see of itself: the firewall, DNS, a lapsed certificate, the pu
 must be inside `reader_cidrs`.
 
 ## Rollout
+
+Changed 2026-11-18: the existing servers were tests and are not migrated. The first rollout is a new server created
+with `grafana_secret` set (and a bundle that has `teammind-monitoring.sh`), then the checks in step 1.
 
 1. The test server (`atiqur-test-01`): rerun the bootstrap with the new variables; apply `monitoring/`; stop
    `olyvr` and see TeamMindUnhealthy and OlyvrServiceDown page; start it and see them resolve. The server needs a

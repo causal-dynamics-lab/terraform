@@ -4,7 +4,10 @@
 > Source mode (the VM fetching commits with a GitHub token) has since been removed: a server installs only from a
 > staged bundle. Paths and details below are as they were.
 
-**Status:** Approved 2026-10-30; implemented in `infra/teammind/` (see "Changes after approval" at the end)
+**Status:** Approved 2026-10-30; implemented in `infra/teammind/` (see "Changes after approval" at the end).
+Applied on AWS on 2026-10-30 (from `infra/teammind/`, local state) and on Google Cloud on 2026-11-20 from
+`olyvr-teammind/gcp` with remote state, for two servers (`engineering-teammind`, `compliance-teammind`). Azure not yet.
+For how to run it today, follow `../README.md`, not this plan.
 **Related (in the olyvr repo):** `docs/plans/teammind-dogfood1-postgres-deploy.md` (the existing VM, done by hand),
 `docs/plans/teammind-memory-server-postgres.md` (the code), `rebuild/docs/server-mode.md` (design).
 
@@ -296,7 +299,9 @@ the same script. Phase 2 before 3 and 4 because dev's GCP project exists and the
 
 ## Changes after approval
 
-- **No AppImage: the VM runs Olyvr from a source checkout.** #504 (2026-10-29) stopped building Linux
+- **No AppImage: the VM runs Olyvr from a source checkout.** *(Superseded: the AppImage came back as the Release
+  workflow's `olyvr-linux` artifact, and a server now installs only from a bundle staged by
+  `operator/teammind-stage.sh`; `olyvr_source_commit` and source mode are gone.)* #504 (2026-10-29) stopped building Linux
   installers, so `olyvr_appimage_url` and its digest are gone. The bootstrap fetches `olyvr_source_commit`
   (a full SHA; git refuses content that doesn't hash to it, so no separate sha256) with the same PAT as
   the memory source, runs `uv sync --frozen --no-dev --python 3.12` in `rebuild/`, and the service runs
