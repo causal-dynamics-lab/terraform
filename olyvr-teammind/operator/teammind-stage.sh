@@ -10,7 +10,8 @@
 #
 # Olyvr is the olyvr-linux artifact of a Release run (release.yml); its track (dev, or beta/stable for
 # production's services) is read from the run. The memory API is the linux-x86_64 archive of a Memory API release
-# run (memory-release.yml), for the tag memory_release names. The backup tools come from this checkout.
+# run (memory-release.yml: its memory-archive-linux-x86_64 artifact, or memory-archives), for the tag memory_release
+# names. The backup tools come from this checkout.
 #
 # Writes <dest>/<track>-<version>/ (olyvr.AppImage, reasonara-memory.tar.gz, teammind-tools.tar.gz, BUNDLE with what
 # went in, SHA256SUMS), so a dev and a beta bundle sit side by side; uploads it with your AWS credentials when DEST is
@@ -55,7 +56,18 @@ if [ -n "$olyvr_run" ]; then
   fi
 fi
 if [ -n "$memory_run" ]; then
-  gh run download "$memory_run" -R "$repo" -n memory-archives -D "$work/memory"
+  # A compiled run (the default kind) uploads one artifact per platform, memory-archive-linux-x86_64; only a run
+  # that publishes to dev, or the published kind, also uploads memory-archives with every platform's archive.
+  names=$(gh api "repos/$repo/actions/runs/$memory_run/artifacts" --paginate -q '.artifacts[] | select(.expired | not) | .name')
+  if printf '%s\n' "$names" | grep -qx memory-archive-linux-x86_64; then
+    artifact="memory-archive-linux-x86_64"
+  elif printf '%s\n' "$names" | grep -qx memory-archives; then
+    artifact="memory-archives"
+  else
+    echo "run $memory_run has no memory-archive-linux-x86_64 or memory-archives artifact (expired, or not a Memory API release run)" >&2
+    exit 1
+  fi
+  gh run download "$memory_run" -R "$repo" -n "$artifact" -D "$work/memory"
   memory=$(ls "$work"/memory/*-linux-x86_64.tar.gz)
 fi
 [ -f "$appimage" ] || { echo "no AppImage at $appimage" >&2; exit 1; }
