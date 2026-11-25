@@ -66,6 +66,10 @@ resource "aws_s3_object" "infra_version" {
     provider        = "eks"
     region          = data.aws_region.current.name
   })
+
+  # Write the marker only after versioning is on, so the previous marker is
+  # kept as a noncurrent version on upgrade.
+  depends_on = [aws_s3_bucket_versioning.infra_version]
 }
 
 resource "aws_s3_bucket_policy" "deployer_infra_version_read" {

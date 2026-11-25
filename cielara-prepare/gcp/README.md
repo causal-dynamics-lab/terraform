@@ -123,7 +123,8 @@ migrate    = true
 
 ```bash
 terraform init
-terraform apply     # imports, creates nothing new
+terraform apply     # imports, creates nothing new (a bucket from an earlier
+                    # module version is updated in place to turn on versioning)
 terraform plan      # must report: No changes.
 ```
 

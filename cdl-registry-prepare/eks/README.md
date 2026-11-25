@@ -32,8 +32,10 @@ Requires Terraform >= 1.7 and an AWS identity with IAM-write permissions in
 the target account (an `AdministratorAccess` identity, or one scoped to
 `arn:aws:iam::*:role/cielara_eks_deployer_*`). A scoped identity also needs
 S3 permissions on the `cielara-infra-version-*` marker bucket, including
-`s3:PutBucketVersioning` and `s3:PutLifecycleConfiguration` (the bucket is
-versioned, with replaced versions expired after 30 days):
+`s3:PutBucketVersioning`, `s3:GetBucketVersioning`,
+`s3:PutLifecycleConfiguration` and `s3:GetLifecycleConfiguration` (the bucket is
+versioned, with replaced versions expired after 30 days), plus
+`s3:ListBucketVersions` and `s3:DeleteObjectVersion` for `terraform destroy`:
 
 ```bash
 aws configure sso                    # one-time SSO setup

@@ -30,9 +30,10 @@ resource "azurerm_storage_account" "infra_version" {
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
 
-  # Keep every overwritten version.json recoverable;
-  # an in-place update on an existing account. The management policy below
-  # deletes a previous version 30 days after it was created.
+  # Keep every overwritten version.json recoverable; an in-place update on an
+  # existing account. No lifecycle deletion: Azure ages a version from when it
+  # was written, not when it was replaced, so an age rule would drop a marker
+  # the moment it is replaced. One ~1 KB version per prepare run is kept.
   blob_properties {
     versioning_enabled = true
   }
@@ -42,25 +43,6 @@ resource "azurerm_storage_container" "infra_version" {
   name                  = "infra-version"
   storage_account_id    = azurerm_storage_account.infra_version.id
   container_access_type = "private"
-}
-
-resource "azurerm_storage_management_policy" "infra_version" {
-  storage_account_id = azurerm_storage_account.infra_version.id
-
-  rule {
-    name    = "expire-previous-versions"
-    enabled = true
-
-    filters {
-      blob_types = ["blockBlob"]
-    }
-
-    actions {
-      version {
-        delete_after_days_since_creation = 30
-      }
-    }
-  }
 }
 
 resource "azurerm_storage_blob" "infra_version" {
