@@ -10,11 +10,21 @@ variable "name" {
 }
 
 variable "artifacts" {
-  description = "A bundle folder made by operator/teammind-stage.sh (s3://bucket/prefix on AWS or gs://bucket/prefix on Google Cloud, read with the VM's identity, or an https:// URL): Olyvr's Linux AppImage, the Memory API release archive and the backup tools."
+  description = "A bundle folder made by operator/teammind-stage.sh (s3://bucket/prefix on AWS or gs://bucket/prefix on Google Cloud, read with the VM's identity, or an https:// URL): the Memory API release archive, the backup tools and (unless olyvr_track is set) Olyvr's Linux AppImage."
   type        = string
   validation {
     condition     = can(regex("^(s3|gs|https)://[A-Za-z0-9._:/@+=-]+[^/]$", var.artifacts))
     error_message = "artifacts is an s3://, gs:// or https:// folder without a trailing slash: letters, digits and . _ : / @ + = - only."
+  }
+}
+
+variable "olyvr_track" {
+  description = "Where Olyvr's AppImage comes from: \"beta\" or \"stable\", the newest public AppImage of that track (olyvr.ai/updates, checked against the SHA-512 its feed gives; a rerun of the bootstrap moves to the track's newest release), or \"\" for the one in the bundle. The memory API and the backup tools come from the bundle either way."
+  type        = string
+  default     = "beta"
+  validation {
+    condition     = contains(["", "beta", "stable"], var.olyvr_track)
+    error_message = "olyvr_track is \"beta\", \"stable\" or \"\" (the bundle's AppImage). Dev builds need a team licence the server doesn't have."
   }
 }
 

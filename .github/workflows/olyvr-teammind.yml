@@ -83,7 +83,7 @@ jobs:
           output "r" {
             value = templatefile("${path.module}/olyvr-teammind/bootstrap/cloud-init.yaml.tftpl", {
               ssh_user = "ubuntu", ssh_public_key = "ssh-ed25519 AAAA test", cloud = var.cloud, gcp_project = "", azure_vault = "",
-              artifacts = var.artifacts, artifacts_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+              artifacts = var.artifacts, artifacts_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", olyvr_track = "beta",
               memory_release = "v0", llm_base_url = "https://example.invalid/v1", llm_model = "m",
               llm_key_secret = "", tls_mode = "self_signed", domain = "", acme_email = "", tls_secret = "", gate_port = 8013,
               backup_bucket = "b", public_ip = "203.0.113.5",

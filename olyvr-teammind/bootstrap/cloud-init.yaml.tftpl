@@ -19,6 +19,7 @@ write_files:
       AZURE_VAULT='${replace(azure_vault, "'", "'\\''")}'
       ARTIFACTS='${replace(artifacts, "'", "'\\''")}'
       ARTIFACTS_SHA256='${replace(artifacts_sha256, "'", "'\\''")}'
+      OLYVR_TRACK='${olyvr_track}'
       MEMORY_RELEASE='${replace(memory_release, "'", "'\\''")}'
       LLM_BASE_URL='${replace(llm_base_url, "'", "'\\''")}'
       LLM_MODEL='${replace(llm_model, "'", "'\\''")}'

@@ -7,12 +7,15 @@
 #   teammind-stage.sh --olyvr-run <id> --memory-run <id> gs://bucket/teammind
 #   teammind-stage.sh --olyvr-run <id> --memory-run <id> https://<account>.blob.core.windows.net/<container>/teammind
 #   teammind-stage.sh --appimage <file> --memory <file> [--track dev|beta|stable] s3://bucket/teammind
+#   teammind-stage.sh --memory-run <id> gs://bucket/teammind      # no Olyvr: for a server with olyvr_track set
 #
 # Olyvr is the olyvr-linux artifact of a Release run (release.yml); its track (dev, or beta/stable for
 # production's services) is read from the run. The memory API is the linux-x86_64 archive of a Memory API release
 # run (memory-release.yml: its memory-archive-linux-x86_64 artifact, or memory-archives), for the tag memory_release
 # names. The backup tools come from this checkout.
 #
+# Without --olyvr-run or --appimage the bundle holds no Olyvr, for a server that installs the public AppImage of its
+# olyvr_track; it goes to <dest>/memory-<tag>/.
 # Writes <dest>/<track>-<version>/ (olyvr.AppImage, reasonara-memory.tar.gz, teammind-tools.tar.gz, BUNDLE with what
 # went in, SHA256SUMS), so a dev and a beta bundle sit side by side; uploads it with your AWS credentials when DEST is
 # s3://, your gcloud login when it is gs://, or your az login when it is an Azure Blob container (you need Storage Blob
@@ -37,7 +40,7 @@ while [ $# -gt 1 ]; do
 done
 [ $# -eq 1 ] || usage
 dest=${1%/}
-if [ -z "$olyvr_run$appimage" ] || [ -z "$memory_run$memory" ]; then usage; fi
+if [ -z "$memory_run$memory" ]; then usage; fi
 here=$(cd "$(dirname "$0")" && pwd)
 bootstrap=$here/../bootstrap
 
@@ -70,18 +73,24 @@ if [ -n "$memory_run" ]; then
   gh run download "$memory_run" -R "$repo" -n "$artifact" -D "$work/memory"
   memory=$(ls "$work"/memory/*-linux-x86_64.tar.gz)
 fi
-[ -f "$appimage" ] || { echo "no AppImage at $appimage" >&2; exit 1; }
+[ -z "$appimage" ] || [ -f "$appimage" ] || { echo "no AppImage at $appimage" >&2; exit 1; }
 [ -f "$memory" ] || { echo "no memory archive at $memory" >&2; exit 1; }
-case $track in dev|beta|stable) ;; *) echo "the build's track is '$track': give --track dev, beta or stable" >&2; exit 1 ;; esac
+if [ -n "$appimage" ]; then
+  case $track in dev|beta|stable) ;; *) echo "the build's track is '$track': give --track dev, beta or stable" >&2; exit 1 ;; esac
+fi
 tar -tzf "$memory" reasonara-memory/pyproject.toml >/dev/null 2>&1 \
   || { echo "$memory isn't a Memory API release archive (no reasonara-memory/pyproject.toml)" >&2; exit 1; }
 
 # Olyvr-<version>-x86_64.AppImage and reasonara-memory-<tag>[-<platform>].tar.gz, as the workflows name them.
-version=$(basename "$appimage" | sed -n 's/^Olyvr-\(.*\)-x86_64\.AppImage$/\1/p')
 memory_tag=$(basename "$memory" | sed -n 's/^reasonara-memory-\(v[^-]*\(-[a-z]*\.[0-9]*\)\{0,1\}\).*\.tar\.gz$/\1/p')
-[ -n "$version" ] || { echo "can't read the version from $(basename "$appimage")" >&2; exit 1; }
-
-cp "$appimage" "$out/olyvr.AppImage"
+files="reasonara-memory.tar.gz teammind-tools.tar.gz BUNDLE"
+version=""
+if [ -n "$appimage" ]; then
+  version=$(basename "$appimage" | sed -n 's/^Olyvr-\(.*\)-x86_64\.AppImage$/\1/p')
+  [ -n "$version" ] || { echo "can't read the version from $(basename "$appimage")" >&2; exit 1; }
+  cp "$appimage" "$out/olyvr.AppImage"
+  files="olyvr.AppImage $files"
+fi
 cp "$memory" "$out/reasonara-memory.tar.gz"
 tar -czf "$out/teammind-tools.tar.gz" -C "$bootstrap" teammind-backup.sh teammind-restore.sh teammind-check-sftp.sh \
   teammind-monitoring.sh
@@ -94,10 +103,11 @@ memory_run=${memory_run:-}
 tools_commit=$(git -C "$here" rev-parse HEAD 2>/dev/null || echo unknown)
 staged=$(date -u +%FT%TZ)
 EOF
-(cd "$out" && sha256sum olyvr.AppImage reasonara-memory.tar.gz teammind-tools.tar.gz BUNDLE > SHA256SUMS)
+# shellcheck disable=SC2086  # a list of plain file names
+(cd "$out" && sha256sum $files > SHA256SUMS)
 sums=$(sha256sum "$out/SHA256SUMS" | cut -d' ' -f1)
 
-folder=$dest/$track-$version
+if [ -n "$version" ]; then folder=$dest/$track-$version; else folder=$dest/memory-$memory_tag; fi
 case $dest in
   s3://*) aws s3 cp --only-show-errors --recursive "$out" "$folder" ;;
   gs://*) gcloud storage cp --quiet "$out"/* "$folder/" ;;
