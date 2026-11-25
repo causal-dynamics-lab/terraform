@@ -48,6 +48,19 @@ terraform init -backend-config=backend.hcl
 The state holds the VM's user data and resource IDs, never a secret value (those stay in the secret store), but
 keep the bucket private all the same. Use a bucket of its own, not the backup bucket.
 
+**Several servers from one root.** One `backend.hcl` and one `terraform.tfvars` serve one server. For more, keep a
+git-ignored pair per server, `<server>.backend.tfvars` and `<server>.tfvars`, and a Terraform data directory per
+server, so one server's `init` never switches another's backend:
+
+```bash
+export TF_DATA_DIR=.terraform-<server>      # the backups root gets its own too
+terraform init -reconfigure -backend-config=<server>.backend.tfvars
+terraform apply -var-file=<server>.tfvars
+```
+
+The readiness check keeps the VM's host key in `.terraform/teammind-known-hosts`, which doesn't follow `TF_DATA_DIR`:
+run one server's apply at a time.
+
 ## Before the first apply
 
 1. **The backup bucket**, once per environment: `cd <cloud>/backups && terraform apply`. It has versioning,
@@ -145,6 +158,19 @@ along with `ssh … sudo tail -f /var/log/teammind-bootstrap.log`.
 Every cloud gives the server a network of its own on `vpc_cidr` (default `10.80.0.0/16`; the server's subnet is its first `/24`), where nothing else runs and its firewall rules are the only way in. On AWS, `vpc_id` uses an existing VPC instead.
 
 Machine sizes that match the dogfood server: `e2-standard-2`, `t3.large`, `Standard_B2ms`.
+
+**Notes from the first applies:**
+
+- **`admin_cidrs` behind a rotating egress.** The readiness check connects over ssh from the machine running
+  Terraform. Behind Cloudflare WARP that address rotates among several; list all of them, or the check times out.
+- **Merge DNS first.** With `letsencrypt` and a zone managed elsewhere, merge the record before the full apply;
+  otherwise the VM waits for the name, the readiness check can time out, and the bootstrap needs a rerun.
+- **GCP: an expired application-default login** (`invalid_rapt`). Run with
+  `GOOGLE_OAUTH_ACCESS_TOKEN=$(gcloud auth print-access-token)`. That token lasts an hour, so an apply that waits
+  longer can't save its state: it writes `errored.tfstate` and leaves the GCS lock. `terraform force-unlock <id>`
+  (the lock object's generation), then `terraform state push errored.tfstate`.
+- **The model id must be listed today.** A model the endpoint drops fails the bootstrap's model check; check
+  `<llm_base_url>/models` before an apply.
 
 ## Changing a running server
 
