@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Sets up one TeamMind server on a bare Ubuntu 24.04 VM: PostgreSQL 16 with pgvector, Olyvr headless (from a
-# staged bundle: ARTIFACTS, below), the memory server on PostgreSQL behind its gate, TLS, the reader token, backups (encrypted sets to
+# Sets up one TeamMind server on a bare Ubuntu 24.04 VM: PostgreSQL 16 with pgvector, Olyvr headless (the public
+# AppImage of OLYVR_TRACK, or a staged bundle's: ARTIFACTS, below), the memory server on PostgreSQL behind its gate, TLS, the reader token, backups (encrypted sets to
 # BACKUP_TARGETS, olyvr-teammind/docs/teammind-backup-recovery.md).
 # Run by cloud-init as root with /etc/olyvr/bootstrap.env written first (olyvr-teammind/<cloud>), or by hand:
 #
@@ -18,7 +18,8 @@ MARKS=/var/lib/olyvr/bootstrap
 READY=/var/lib/olyvr/teammind-ready
 FAILED=/var/lib/olyvr/teammind-failed
 OLYVR_HOME=/opt/olyvr
-APP=$OLYVR_HOME/app                     # Olyvr unpacked from the bundle's AppImage: backend/, workspace/
+APP=$OLYVR_HOME/app                     # Olyvr unpacked from its AppImage: backend/, workspace/
+OLYVR_RELEASE=$OLYVR_HOME/olyvr-release # which AppImage that was: version, track, where from
 TOOLS=$OLYVR_HOME/tools                 # the bundle's backup tools
 BUNDLE=$OLYVR_HOME/bundle               # the bundle's SHA256SUMS
 MEMORY_SRC=$OLYVR_HOME/reasonara-memory # the memory API: the bundle's compiled archive
@@ -38,7 +39,14 @@ echo "== teammind bootstrap $(date -u +%FT%TZ)"
 . "$ENV_FILE"
 : "${CLOUD:?}" "${MEMORY_RELEASE:?}" "${LLM_BASE_URL:?}" "${LLM_MODEL:?}" "${TLS_MODE:?}" "${GATE_PORT:?}"
 # Where Olyvr and the memory API come from: a staged bundle (ARTIFACTS, a folder made by operator/teammind-stage.sh,
-# pinned by the SHA-256 of its SHA256SUMS).
+# pinned by the SHA-256 of its SHA256SUMS). OLYVR_TRACK (beta, stable) takes Olyvr from that track's public AppImage
+# instead, the newest at each run; memory API releases are for licensed Olyvrs only, so that stays in the bundle.
+OLYVR_TRACK="${OLYVR_TRACK:-}"
+OLYVR_UPDATES_URL="${OLYVR_UPDATES_URL:-https://olyvr.ai/updates}"
+case $OLYVR_TRACK in
+  ""|beta|stable) ;;
+  *) echo "OLYVR_TRACK is beta, stable or empty (the bundle's AppImage), not '$OLYVR_TRACK'" >&2; exit 1 ;;
+esac
 : "${ARTIFACTS:?ARTIFACTS names the staged bundle (operator/teammind-stage.sh)}"
 : "${ARTIFACTS_SHA256:?ARTIFACTS needs the SHA-256 of its SHA256SUMS}"
 : "${BACKUP_BUCKET:?}" "${PUBLIC_IP:?}" "${BACKUP_AGE_RECIPIENTS:?backups are never written unencrypted}"
@@ -117,6 +125,22 @@ fetch_artifact() {
   if [ "$name" = SHA256SUMS ]; then want=$ARTIFACTS_SHA256; else want=$(awk -v f="$name" '$2 == f || $2 == "*" f {print $1}' "$BUNDLE/SHA256SUMS"); fi
   [ -n "$want" ] || { echo "$name isn't listed in $ARTIFACTS/SHA256SUMS" >&2; return 1; }
   [ "$(sha256sum "$dest" | cut -d' ' -f1)" = "$want" ] || { rm -f "$dest"; echo "$ARTIFACTS/$name doesn't match its SHA-256" >&2; return 1; }
+}
+# OLYVR_TRACK's newest public AppImage into $1, checked against the SHA-512 in the track's feed; sets FEED_VERSION.
+fetch_public_appimage() {
+  local feed="$OLYVR_UPDATES_URL/feed/$OLYVR_TRACK/latest-linux.yml" body url sha end=$((SECONDS + 600))
+  key() { printf '%s\n' "$body" | sed -n "s/^$1: *'\{0,1\}\([^']*\)'\{0,1\} *$/\1/p" | head -n1; }  # top level only
+  until body=$(curl -fsSL -m 30 "$feed"); do
+    [ $SECONDS -lt $end ] || { echo "couldn't read $feed" >&2; return 1; }
+    sleep 20
+  done
+  FEED_VERSION=$(key version); url=$(key path); sha=$(key sha512)
+  case $url in https://*) [ -n "$FEED_VERSION" ] && [ -n "$sha" ] ;; *) false ;; esac || { echo "$feed: no AppImage, version or sha512" >&2; return 1; }
+  echo "Olyvr: the $OLYVR_TRACK track is on $FEED_VERSION"
+  [ -n "${1:-}" ] || return 0
+  curl -fsSL --retry 5 --retry-all-errors -o "$1" "$url"
+  [ "$(openssl dgst -sha512 -binary "$1" | base64 -w0)" = "$sha" ] || { echo "$url doesn't match its SHA-512" >&2; return 1; }
+  printf 'version=%s\ntrack=%s\nfrom=%s\n' "$FEED_VERSION" "$OLYVR_TRACK" "$url" > "$1.release"
 }
 fetch_artifact_once() {
   case $ARTIFACTS in
@@ -248,12 +272,22 @@ if grep -qE ' [*]?BUNDLE$' "$BUNDLE/SHA256SUMS"; then
   [ -z "$staged" ] || [ "$staged" = "$MEMORY_RELEASE" ] \
     || { echo "the bundle holds memory release $staged, but MEMORY_RELEASE is $MEMORY_RELEASE" >&2; exit 1; }
 fi
-OLYVR_DIGEST=$(digest "$ARTIFACTS" "$ARTIFACTS_SHA256")
+if [ -n "$OLYVR_TRACK" ]; then
+  fetch_public_appimage
+  OLYVR_DIGEST=$(digest "$OLYVR_TRACK" "$FEED_VERSION" "$ARTIFACTS" "$ARTIFACTS_SHA256")
+else
+  OLYVR_DIGEST=$(digest "$ARTIFACTS" "$ARTIFACTS_SHA256")
+fi
 if ! is_done olyvr "$OLYVR_DIGEST"; then
   systemctl stop olyvr 2>/dev/null || true
   if [ -d "$APP.previous" ]; then rm -rf "$APP"; mv "$APP.previous" "$APP"; fi
   tmp=$(mktemp -d)
-  fetch_artifact olyvr.AppImage "$tmp/olyvr.AppImage"
+  if [ -n "$OLYVR_TRACK" ]; then
+    fetch_public_appimage "$tmp/olyvr.AppImage"
+  else
+    fetch_artifact olyvr.AppImage "$tmp/olyvr.AppImage"
+    echo "from=$ARTIFACTS" > "$tmp/olyvr.AppImage.release"
+  fi
   # Unpacked, never run as an app.
   chmod +x "$tmp/olyvr.AppImage"
   (cd "$tmp" && ./olyvr.AppImage --appimage-extract >/dev/null)
@@ -264,6 +298,7 @@ if ! is_done olyvr "$OLYVR_DIGEST"; then
   mv "$tmp/squashfs-root/resources/backend" "$tmp/squashfs-root/resources/workspace" "$APP/"
   chown -R olyvr:olyvr "$APP"
   rm -rf "$TOOLS"; mkdir -p "$TOOLS"; tar -xzf "$tmp/tools.tar.gz" -C "$TOOLS"
+  mv "$tmp/olyvr.AppImage.release" "$OLYVR_RELEASE"
   rm -rf "$tmp"
   mark olyvr "$OLYVR_DIGEST"
   rm -rf "$APP.previous"
@@ -516,5 +551,6 @@ fi
 URL="https://${DOMAIN:-$PUBLIC_IP}:$GATE_PORT"
 printf '%s\nbackup signing key (add to allowed_signers): %s\n' "$URL" "$SIGNING_KEY" > "$READY"
 echo "== TeamMind is up at $URL (token: sudo cat $TOKEN_FILE)"
+[ ! -f "$OLYVR_RELEASE" ] || echo "== Olyvr: $(tr '\n' ' ' < "$OLYVR_RELEASE")"
 [ ! -f "$BUNDLE/BUNDLE" ] || echo "== from $ARTIFACTS: $(tr '\n' ' ' < "$BUNDLE/BUNDLE")"
 echo "== backup signing key, for your allowed_signers: $SIGNING_KEY"

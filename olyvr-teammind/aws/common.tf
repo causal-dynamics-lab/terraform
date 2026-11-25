@@ -10,6 +10,7 @@ locals {
     azure_vault           = local.azure_vault
     artifacts             = var.artifacts
     artifacts_sha256      = var.artifacts_sha256
+    olyvr_track           = var.olyvr_track
     memory_release        = var.memory_release
     llm_base_url          = var.llm_base_url
     llm_model             = var.llm_model

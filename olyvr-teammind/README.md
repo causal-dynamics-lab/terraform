@@ -1,7 +1,7 @@
 # A TeamMind server from Terraform
 
 One `terraform apply` launches a VM on Google Cloud, AWS or Azure and, inside it, installs PostgreSQL 16
-with pgvector, runs Olyvr headless (from a staged bundle: "The bundle" below) with the memory server on PostgreSQL behind
+with pgvector, runs Olyvr headless (the newest public beta AppImage by default, or a staged bundle's: "The bundle" below) with the memory server on PostgreSQL behind
 its gate, sets up TLS, makes the reader token, and prints the TeamMind URL. The apply waits until the VM
 reports ready and fails, with the bootstrap log's tail, when it doesn't.
 
@@ -78,6 +78,20 @@ keep the bucket private all the same. Use a bucket of its own, not the backup bu
    the machine running Terraform with `ready_private_key_file` (or ssh-agent), so that machine's address
    must be in `admin_cidrs`. `ready_check = false` skips it for a pipeline that can't ssh; then the apply only
    provisions, and `status_command` tells readiness.
+
+### Olyvr: the public track or the bundle
+
+`olyvr_track` (default `beta`) makes the VM download Olyvr itself: the newest AppImage of that public track, from
+the update service's feed (`https://olyvr.ai/updates/feed/<track>/latest-linux.yml`), checked against the SHA-512 the
+feed gives. `stable` follows stable releases. Every rerun of the bootstrap reads the feed again, so a rerun (or a
+replaced VM) moves to the track's newest release; `teammind-check` and the end of the bootstrap log print the version
+installed. Set `olyvr_track = ""` to pin Olyvr to the AppImage in the bundle instead. Dev builds aren't offered: the
+update service hands them only to the Olyvr team's licences.
+
+The memory API and the backup tools come from the bundle either way: the update service hands memory API releases to
+licensed Olyvrs only, and the server runs without a licence. With `olyvr_track` set, a bundle without Olyvr is
+enough: `teammind-stage.sh --memory-run <id> <dest>` (no `--olyvr-run` or `--appimage`) stages one under
+`<dest>/memory-<tag>/`.
 
 ### The bundle
 
@@ -156,6 +170,7 @@ and redoes itself when they change:
 | Changed | What the rerun does |
 | --- | --- |
 | `ARTIFACTS`, `ARTIFACTS_SHA256` | stops Olyvr, unpacks the bundle's AppImage and tools, replaces the memory API's source and venv, starts it |
+| `OLYVR_TRACK`, or a newer release on that track | stops Olyvr, unpacks the track's newest AppImage (and the bundle's tools), starts it. A rerun with nothing else changed is how a server updates Olyvr |
 | `MEMORY_RELEASE` (with a bundle holding it) | stops the memory API, removes its venv and installs again |
 | `LLM_*`, or the key's secret value | rewrites `olyvr.env` and restarts Olyvr (the memory process gets its model when it starts) |
 | `TLS_MODE`, `DOMAIN`, `ACME_EMAIL`, or the provided pair's secret | gets the certificate again and re-saves it through the local API, which restarts the gate |
