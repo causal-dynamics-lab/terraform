@@ -382,6 +382,9 @@ case $TLS_MODE in
       install -m 755 "$OLYVR_HOME/bootstrap/certbot-deploy.sh" /etc/letsencrypt/renewal-hooks/deploy/olyvr.sh
       mark tls "$TLS_DIGEST"
     fi
+    # Renew by cron, not certbot.timer
+    echo "17 3,15 * * * root certbot renew -q >>/var/log/teammind-certbot.log 2>&1" >/etc/cron.d/teammind-certbot
+    systemctl disable -q --now certbot.timer || :
     install -o olyvr -g olyvr -m 600 "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" "$TLS_DIR/gate.crt"
     install -o olyvr -g olyvr -m 600 "/etc/letsencrypt/live/$DOMAIN/privkey.pem" "$TLS_DIR/gate.key"
     CERT=$TLS_DIR/gate.crt; KEY=$TLS_DIR/gate.key ;;
