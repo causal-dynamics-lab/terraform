@@ -17,7 +17,7 @@ export TF_DATA_DIR=$SERVER_DATA_DIR
 out=$(terraform output -json) || die "no outputs: run the apply first (cd $ROOT; TF_DATA_DIR=$SERVER_DATA_DIR terraform apply -var-file=$NAME.tfvars)"
 o() { printf '%s' "$out" | jq -r --arg k "$1" '.[$k].value // empty'; }
 ip=$(o public_ip); url=$(o teammind_url)
-[ -n "$ip" ] && [ -n "$url" ] || die "the outputs have no public_ip or teammind_url"
+[[ -n $ip && -n $url ]] || die "the outputs have no public_ip or teammind_url"
 
 # The readiness check pinned the VM's host key here (a path that doesn't follow TF_DATA_DIR).
 known=$ROOT/.terraform/teammind-known-hosts

@@ -6,7 +6,7 @@ die() { echo "error: $*" >&2; exit 1; }
 say() { printf '\n==> %s\n' "$*"; }
 need() { for c in "$@"; do command -v "$c" >/dev/null || die "$c is not installed"; done; }
 
-[ $# -eq 1 ] && [ -f "$1" ] || die "usage: $0 <cloud>/<name>.conf (see operator/teammind.conf.example)"
+[[ $# -eq 1 && -f ${1:-} ]] || die "usage: $0 <cloud>/<name>.conf (see operator/teammind.conf.example)"
 CONF=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)   # olyvr-teammind/
 # shellcheck disable=SC1090

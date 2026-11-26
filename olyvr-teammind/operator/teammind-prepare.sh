@@ -109,7 +109,7 @@ say "The bundle"
 bundle_vars=$ROOT/$NAME.bundle.tfvars    # what the last staging printed, and from which runs
 stage_key="memory_run=${MEMORY_RUN:-} olyvr_run=${OLYVR_RUN:-}"
 if [ -n "${ARTIFACTS:-}" ]; then
-  [ -n "${ARTIFACTS_SHA256:-}" ] && [ -n "${MEMORY_RELEASE:-}" ] || die "with ARTIFACTS, set ARTIFACTS_SHA256 and MEMORY_RELEASE"
+  [[ -n ${ARTIFACTS_SHA256:-} && -n ${MEMORY_RELEASE:-} ]] || die "with ARTIFACTS, set ARTIFACTS_SHA256 and MEMORY_RELEASE"
   echo "using ARTIFACTS from $CONF"
 elif [ -f "$bundle_vars" ] && grep -qxF "# $stage_key" "$bundle_vars"; then
   echo "already staged ($stage_key)"
@@ -126,7 +126,7 @@ fi
 if [ -z "${ARTIFACTS:-}" ]; then
   val() { sed -n "s/^$1 *= *\"\(.*\)\"$/\1/p" "$bundle_vars"; }
   ARTIFACTS=$(val artifacts); ARTIFACTS_SHA256=$(val artifacts_sha256); MEMORY_RELEASE=$(val memory_release)
-  [ -n "$ARTIFACTS" ] && [ -n "$ARTIFACTS_SHA256" ] && [ -n "$MEMORY_RELEASE" ] || die "can't read $bundle_vars"
+  [[ -n $ARTIFACTS && -n $ARTIFACTS_SHA256 && -n $MEMORY_RELEASE ]] || die "can't read $bundle_vars"
 fi
 
 # ---------- the model key ----------
@@ -165,7 +165,7 @@ if [ -z "${ADMIN_CIDRS:-}" ]; then
 fi
 [ -n "$READER_CIDRS" ] || die "READER_CIDRS is required"
 if [ "$TLS_MODE" = letsencrypt ]; then
-  [ -n "${DOMAIN:-}" ] && [ -n "${ACME_EMAIL:-}" ] || die "letsencrypt needs DOMAIN and ACME_EMAIL"
+  [[ -n ${DOMAIN:-} && -n ${ACME_EMAIL:-} ]] || die "letsencrypt needs DOMAIN and ACME_EMAIL"
 fi
 hcl_list() { local out="" x; for x in $1; do out="$out\"$x\", "; done; printf '[%s]' "${out%, }"; }
 tfvars=$ROOT/$NAME.tfvars
