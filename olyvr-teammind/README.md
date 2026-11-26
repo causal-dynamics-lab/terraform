@@ -240,7 +240,7 @@ too many people.
 | Rotate the reader token | share the secondary first: `… -d '{"action":"token","slot":"secondary"}'`, then regenerate the primary |
 | Backups | `/etc/cron.d/teammind-backup` at `backup_schedule`: one encrypted, signed set to `/var/backups/teammind/<set>` (a week) and to every `backup_targets` entry. Status: `/var/lib/olyvr/backup-status.json`. Log: `/var/log/teammind-backup.log`. By hand: `sudo teammind-backup [--verify]` |
 | Monitoring | `systemctl status alloy teammind-collect.timer`; Alloy's own UI on `127.0.0.1:12345` (ssh -L); the last check `/run/teammind-check.last`; the metrics it wrote `/var/lib/alloy/textfile/teammind.prom` |
-| Certificates | certbot renews by its timer; `/etc/letsencrypt/renewal-hooks/deploy/olyvr.sh` copies the new pair and restarts `olyvr`, since the gate serves the certificate it started with (log: `/var/log/teammind-certbot.log`) |
+| Certificates | `/etc/cron.d/teammind-certbot` runs `certbot renew` at 03:17 and 15:17 UTC (Ubuntu's `certbot.timer` is turned off); `/etc/letsencrypt/renewal-hooks/deploy/olyvr.sh` copies the new pair and restarts `olyvr`, since the gate serves the certificate it started with (log: `/var/log/teammind-certbot.log`) |
 
 ## Backups
 
