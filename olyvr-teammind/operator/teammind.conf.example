@@ -1,0 +1,60 @@
+# One TeamMind server's settings, for teammind-prepare.sh and teammind-finish.sh.
+# Copy it next to the root it is for, as <cloud>/<name>.conf (git-ignored), and fill it in:
+#
+#   cp operator/teammind.conf.example gcp/teammind.conf && $EDITOR gcp/teammind.conf
+#   operator/teammind-prepare.sh gcp/teammind.conf
+#
+# Only the lines marked "required" need a value; the rest have the defaults shown. It is read by bash: no spaces
+# around =, and quote values with spaces.
+
+CLOUD=gcp                          # required: gcp or aws
+NAME=teammind                      # required: the server's name (VM, firewall, state key); one per server
+
+# Google Cloud
+PROJECT=                           # required on gcp: the project the server lives in
+REGION=us-east1                    # gcp or aws region
+ZONE=us-east1-b                    # gcp only
+# AWS: only where the region has no default VPC, a VPC and one of its public subnets
+VPC_ID=
+SUBNET_ID=
+
+# Buckets (made if missing). Defaults: <name>-tfstate, <name>-teammind-backups, <name>-teammind-bundles
+STATE_BUCKET=
+BACKUP_BUCKET=
+BUNDLE_BUCKET=
+
+# The memory engine: a Memory API release run in xfabric-sec/olyvr (Actions → Memory API release)
+MEMORY_RUN=                        # required, unless ARTIFACTS, ARTIFACTS_SHA256 and MEMORY_RELEASE are set
+OLYVR_TRACK=beta                   # beta, stable, or "" for an AppImage in the bundle (then also OLYVR_RUN)
+OLYVR_RUN=                         # a Release run id; only with OLYVR_TRACK=""
+
+# The model: an OpenAI-compatible endpoint and a model id it lists
+LLM_BASE_URL=https://llm-proxy.cielara-dev.net/t/shared/v1
+LLM_MODEL=gpt-6-luna
+LLM_KEY_SECRET=teammind-llm-key    # the secret's name; if it doesn't exist, the script asks for the key
+
+# TLS: self_signed, letsencrypt (needs DOMAIN and ACME_EMAIL) or provided (needs TLS_SECRET)
+TLS_MODE=letsencrypt
+DOMAIN=                            # for example teammind.olyvr.ai
+ACME_EMAIL=
+DNS_ZONE=                          # a zone this cloud account manages; empty when DNS lives elsewhere (xfabric-sec/dns)
+TLS_SECRET=
+
+# Who may reach what. ADMIN_CIDRS defaults to this machine's public address (behind WARP, list every egress address)
+ADMIN_CIDRS=
+READER_CIDRS="0.0.0.0/0"           # space-separated
+ALLOW_PUBLIC_READERS=true          # needed for 0.0.0.0/0: the reader token is then the only lock
+
+# ssh. Default: ~/.ssh/id_ed25519.pub, else ~/.ssh/id_rsa.pub
+SSH_PUBLIC_KEY_FILE=
+
+# Backups are encrypted to your age key and a break-glass key kept offline.
+AGE_KEY=~/.config/teammind/age.key # made if missing
+BREAKGLASS_RECIPIENT=              # age1… public key; empty: made at ~/teammind-backup-breakglass.key (move it offline)
+BACKUP_ENV=                        # the backups root's state key; default: NAME
+
+GRAFANA_SECRET=                    # optional: the Grafana Cloud connection secret (runbook, Monitoring)
+MACHINE_TYPE=                      # default: e2-standard-2 on gcp, t3.large on aws
+
+# teammind-finish.sh: 1 to open the server's Olyvr in a browser through an ssh tunnel (runbook, step 7)
+BROWSER_SESSION=0

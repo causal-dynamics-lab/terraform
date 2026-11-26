@@ -16,3 +16,8 @@ tmp/
 # Prepare-module handback files — credentials, never commit
 cielara-key.json
 cielara-creds.json
+
+# olyvr-teammind: per-server Terraform data dirs (TF_DATA_DIR) and operator settings
+.terraform-*/
+olyvr-teammind/*/*.conf
+*.tfvars.bak

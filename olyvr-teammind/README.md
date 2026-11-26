@@ -19,6 +19,8 @@ olyvr-teammind/
 │  ├─ teammind-monitoring.sh  Grafana Alloy: metrics and logs to Grafana Cloud (from the bundle too)
 │  └─ wait-ready.sh      the readiness check Terraform runs from your machine
 ├─ operator/             run on your machine, never on the server
+│  ├─ teammind-prepare.sh  everything before the apply, from one settings file (teammind.conf.example)
+│  ├─ teammind-finish.sh   everything after it: signing key, reader token, checks
 │  ├─ teammind-unpack.py checks a backup set's signature and digests and streams it, decrypted, to teammind-restore
 │  ├─ teammind-stage.sh  stages the bundle a server installs
 │  └─ teammind-pull.sh   pulls the encrypted sets to a PC or NAS
@@ -30,6 +32,32 @@ olyvr-teammind/
 
 Backups are planned in [docs/teammind-backup-recovery.md](docs/teammind-backup-recovery.md), monitoring in
 [docs/teammind-monitoring.md](docs/teammind-monitoring.md).
+
+## Quick start: two scripts and the apply
+
+For Google Cloud or AWS, the steps in "State" and "Before the first apply" are scripted. Fill in one settings file per
+server, then:
+
+```bash
+cp operator/teammind.conf.example gcp/<name>.conf && $EDITOR gcp/<name>.conf   # git-ignored
+operator/teammind-prepare.sh gcp/<name>.conf
+cd gcp && export TF_DATA_DIR=.terraform-<name>
+terraform apply -var-file=<name>.tfvars
+../operator/teammind-finish.sh <name>.conf
+```
+
+`teammind-prepare.sh` checks your tools and cloud login (`gcloud auth login` plus `gcloud auth application-default
+login`, or `aws sso login` with `AWS_PROFILE`; and `gh auth login`), turns on the Google Cloud APIs, makes the state
+and bundle buckets, writes `<name>.backend.tfvars` for the server and the backups root, applies the backups root,
+makes your age key and the break-glass key (move that one offline), stages the bundle from `MEMORY_RUN`, stores the
+model key (it asks for it when the secret is missing) and checks the endpoint lists the model, writes
+`<name>.tfvars`, and runs `terraform init`. With `letsencrypt` and DNS elsewhere, it creates the server's address
+first and prints the A record to add before the apply. Rerun it after changing the settings file; it skips what
+exists and restages only when the runs change.
+
+`teammind-finish.sh` adds the server's backup signing key to `~/.config/teammind/allowed_signers`, saves the reader
+token to `~/.config/teammind/<name>.token` (mode 600), runs `teammind-check` on the VM and the gate check from your
+machine, and with `BROWSER_SESSION=1` turns on browser access to the server's Olyvr. Azure isn't scripted yet.
 
 ## State
 
