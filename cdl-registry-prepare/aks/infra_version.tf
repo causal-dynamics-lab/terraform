@@ -29,6 +29,14 @@ resource "azurerm_storage_account" "infra_version" {
   account_kind                    = "StorageV2"
   min_tls_version                 = "TLS1_2"
   allow_nested_items_to_be_public = false
+
+  # Keep every overwritten version.json recoverable; an in-place update on an
+  # existing account. No lifecycle deletion: Azure ages a version from when it
+  # was written, not when it was replaced, so an age rule would drop a marker
+  # the moment it is replaced. One ~1 KB version per prepare run is kept.
+  blob_properties {
+    versioning_enabled = true
+  }
 }
 
 resource "azurerm_storage_container" "infra_version" {

@@ -82,6 +82,8 @@ a single `version.json` recording which version of this module ran
 (`0.0.0-dev` on an untagged checkout). The deployer service account gets read
 access to just this bucket so the Cielara control plane can tell the prepare
 vintage without asking you.
+The bucket is versioned: a replaced `version.json` is kept for 30 days, then
+deleted by a lifecycle rule.
 
 To confirm the deployer can actually read it, run the bundled verify module
 after the apply — it reads the object back authenticated with
@@ -121,7 +123,8 @@ migrate    = true
 
 ```bash
 terraform init
-terraform apply     # imports, creates nothing new
+terraform apply     # imports, creates nothing new (a bucket from an earlier
+                    # module version is updated in place to turn on versioning)
 terraform plan      # must report: No changes.
 ```
 

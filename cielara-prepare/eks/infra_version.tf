@@ -24,6 +24,35 @@ resource "aws_s3_bucket_public_access_block" "infra_version" {
   restrict_public_buckets = true
 }
 
+# Versioning keeps every overwritten version.json recoverable; the lifecycle
+# rule deletes a replaced version 30 days after it became noncurrent.
+# Both are separate resources, so an existing bucket is never
+# replaced. Once enabled, S3 versioning can only be suspended, not removed.
+resource "aws_s3_bucket_versioning" "infra_version" {
+  bucket = aws_s3_bucket.infra_version.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "infra_version" {
+  bucket = aws_s3_bucket.infra_version.id
+
+  rule {
+    id     = "expire-noncurrent-versions"
+    status = "Enabled"
+
+    filter {}
+
+    noncurrent_version_expiration {
+      noncurrent_days = 30
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.infra_version]
+}
+
 resource "aws_s3_object" "infra_version" {
   bucket       = aws_s3_bucket.infra_version.id
   key          = "version.json"
@@ -37,6 +66,10 @@ resource "aws_s3_object" "infra_version" {
     provider        = "eks"
     region          = data.aws_region.current.name
   })
+
+  # Write the marker only after versioning is on, so the previous marker is
+  # kept as a noncurrent version on upgrade.
+  depends_on = [aws_s3_bucket_versioning.infra_version]
 }
 
 resource "aws_s3_bucket_policy" "deployer_infra_version_read" {
